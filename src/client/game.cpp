@@ -1548,7 +1548,7 @@ void Game::processKeyInput()
 		m_cheat_menu->selectLeft();
 	} else if (wasKeyDown(KeyType::SELECT_RIGHT)) {
 		m_cheat_menu->selectRight();
-	} else if (wasKeyDown(KeyType::SELECT_CONFIRM)) {
+	} else if (wasKeyPressed(KeyType::SELECT_CONFIRM) || wasKeyDown(KeyType::SELECT_CONFIRM)) {
 		m_cheat_menu->selectConfirm();
 	}
 
