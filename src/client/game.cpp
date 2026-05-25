@@ -2020,17 +2020,6 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 	}
 
 	// Keyboard look
-	const f32 rate = m_cache_keyboard_camera_speed * dtime * sens_scale;
-
-	if (input->isKeyDown(KeyType::CAMERA_YAW_LEFT))
-		cam->camera_yaw += rate;
-	if (input->isKeyDown(KeyType::CAMERA_YAW_RIGHT))
-		cam->camera_yaw -= rate;
-	if (input->isKeyDown(KeyType::CAMERA_PITCH_UP))
-		cam->camera_pitch -= rate;
-	if (input->isKeyDown(KeyType::CAMERA_PITCH_DOWN))
-		cam->camera_pitch += rate;
-
 	cam->camera_pitch = rangelim(cam->camera_pitch, -90, 90);
 }
 
