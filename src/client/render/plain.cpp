@@ -34,7 +34,11 @@ void Draw3D::run(PipelineContext &context)
 void DrawTracersAndESP::run(PipelineContext &context)
 {
 	video::IVideoDriver *driver = context.device->getVideoDriver();
-	v3f camera_pos = context.client->getCamera()->getPosition();
+
+	// Convert to camera-offset-relative space (same as Irrlicht scene nodes)
+	v3s16 camera_offset_s16 = context.client->getEnv().getCameraOffset();
+	v3f camera_offset = intToFloat(camera_offset_s16, BS);
+	v3f camera_pos = context.client->getCamera()->getPosition() - camera_offset;
 
 	// Set up material: draw through walls, thicker lines
 	video::SMaterial mat;
@@ -44,10 +48,10 @@ void DrawTracersAndESP::run(PipelineContext &context)
 	driver->setMaterial(mat);
 
 	if (g_settings->getBool("enable_entity_esp") || g_settings->getBool("enable_entity_tracers"))
-		drawEntityESP(context, camera_pos);
+		drawEntityESP(context, camera_pos, camera_offset);
 
 	if (g_settings->getBool("enable_player_esp") || g_settings->getBool("enable_player_tracers"))
-		drawPlayerESP(context, camera_pos);
+		drawPlayerESP(context, camera_pos, camera_offset);
 }
 
 video::SColor DrawTracersAndESP::parseColor(const std::string &setting, u8 alpha)
@@ -61,13 +65,13 @@ video::SColor DrawTracersAndESP::parseColor(const std::string &setting, u8 alpha
 	return video::SColor(alpha, 255, 255, 255);
 }
 
-void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camera_pos)
+void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camera_pos, const v3f &camera_offset)
 {
 	ClientEnvironment &env = context.client->getEnv();
 	video::IVideoDriver *driver = context.device->getVideoDriver();
 
 	std::vector<DistanceSortedActiveObject> objects;
-	env.getActiveObjects(camera_pos, 100000.0f * BS, objects);
+	env.getActiveObjects(camera_pos + camera_offset, 100000.0f * BS, objects);
 
 	video::SColor esp_color = parseColor("entity_esp_color", 255);
 	video::SColor tracer_color = parseColor("entity_esp_color", 200);
@@ -79,7 +83,7 @@ void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camer
 		if (!cao || cao->isPlayer() || cao->isLocalPlayer())
 			continue;
 
-		v3f pos = cao->getPosition();
+		v3f pos = cao->getPosition() - camera_offset;
 		if (pos == camera_pos)
 			continue;
 
@@ -94,13 +98,13 @@ void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camer
 	}
 }
 
-void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camera_pos)
+void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camera_pos, const v3f &camera_offset)
 {
 	ClientEnvironment &env = context.client->getEnv();
 	video::IVideoDriver *driver = context.device->getVideoDriver();
 
 	std::vector<DistanceSortedActiveObject> objects;
-	env.getActiveObjects(camera_pos, 100000.0f * BS, objects);
+	env.getActiveObjects(camera_pos + camera_offset, 100000.0f * BS, objects);
 
 	video::SColor esp_color = parseColor("player_esp_color", 255);
 	video::SColor tracer_color = parseColor("player_esp_color", 200);
@@ -112,7 +116,7 @@ void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camer
 		if (!cao || !cao->isPlayer() || cao->isLocalPlayer())
 			continue;
 
-		v3f pos = cao->getPosition();
+		v3f pos = cao->getPosition() - camera_offset;
 		if (pos == camera_pos)
 			continue;
 
