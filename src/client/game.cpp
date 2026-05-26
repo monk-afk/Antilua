@@ -394,6 +394,9 @@ Game::Game() :
 	for (auto s : settings)
 		g_settings->registerChangedCallback(s, &settingChangedCallback, this);
 
+	g_settings->registerChangedCallback("fullbright",
+		&updateAllMapBlocksCallback, this);
+
 	readSettings();
 }
 
@@ -1821,6 +1824,11 @@ void Game::toggleFreecam()
 		m_game_ui->showTranslatedStatusText("Freecam enabled");
 	else
 		m_game_ui->showTranslatedStatusText("Freecam disabled");
+}
+
+void Game::updateAllMapBlocksCallback(const std::string &, void *data)
+{
+	((Game *)data)->client->updateAllMapBlocks();
 }
 
 void Game::freecamChangedCallback(const std::string &, void *data)
