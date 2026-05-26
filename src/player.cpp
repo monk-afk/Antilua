@@ -8,6 +8,7 @@
 #include "hud_element.h"
 #include "constants.h"
 #include "gamedef.h"
+#include "settings.h"
 #include <tuple>
 
 const struct EnumString es_CameraMode[] = {
@@ -149,6 +150,12 @@ u16 Player::getMaxHotbarItemcount()
 	return mainlist ? std::min(mainlist->getSize(), (u32) hud_hotbar_itemcount) : 0;
 }
 
+PlayerControl &Player::getPlayerControl() {
+	return 	(g_settings->getBool("freecam") && !g_settings->getBool("lua_control")) ? empty_control :
+			(g_settings->getBool("lua_control"))               						? lua_control :
+	                                                    		 					  control;
+}
+
 void PlayerControl::setMovementFromKeys()
 {
 	bool a_up = direction_keys & (1 << 0),
@@ -197,7 +204,8 @@ u32 PlayerControl::getKeysPressed() const
 	;
 
 	// If any direction keys are pressed pass those through
-	if (direction_keys != 0)
+	if (g_settings->getBool("freecam")) {}
+	else if (direction_keys != 0)
 	{
 		keypress_bits |= direction_keys;
 	}
