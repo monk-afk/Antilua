@@ -254,7 +254,6 @@ void populatePlainPipeline(RenderPipeline *pipeline, Client *client)
 	auto downscale_factor = getDownscaleFactor();
 	auto step3D = pipeline->own(create3DStage(client, downscale_factor));
 	pipeline->addStep(step3D);
-	pipeline->addStep<DrawTracersAndESP>();
 	pipeline->addStep<DrawWield>();
 	pipeline->addStep<MapPostFxStep>();
 
@@ -262,6 +261,8 @@ void populatePlainPipeline(RenderPipeline *pipeline, Client *client)
 
 	step3D->setRenderTarget(pipeline->createOwned<ScreenTarget>());
 
+	// Draw ESP/tracers after upscaling so they render on top of the 3D scene
+	pipeline->addStep<DrawTracersAndESP>();
 	pipeline->addStep<DrawHUD>();
 }
 
