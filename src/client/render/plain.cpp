@@ -6,6 +6,7 @@
 #include "plain.h"
 #include "secondstage.h"
 #include "settings.h"
+#include <ICameraSceneNode.h>
 #include "client/camera.h"
 #include "client/client.h"
 #include "client/clientenvironment.h"
@@ -34,6 +35,14 @@ void Draw3D::run(PipelineContext &context)
 void DrawTracersAndESP::run(PipelineContext &context)
 {
 	video::IVideoDriver *driver = context.device->getVideoDriver();
+
+	// Restore main camera matrices (DrawWield/MapPostFx use separate cameras)
+	scene::ICameraSceneNode *cam = context.device->getSceneManager()->getActiveCamera();
+	if (cam) {
+		driver->setTransform(video::ETS_VIEW, cam->getViewMatrix());
+		driver->setTransform(video::ETS_PROJECTION, cam->getProjectionMatrix());
+		driver->setTransform(video::ETS_WORLD, core::IdentityMatrix);
+	}
 
 	// Coordinates must be in camera-offset-relative space (same as Irrlicht scene nodes)
 	v3s16 offset_s16 = context.client->getEnv().getCameraOffset();
