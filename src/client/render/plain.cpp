@@ -19,9 +19,7 @@
 #include <IGUIEnvironment.h>
 #include "map.h"
 #include "nodedef.h"
-#include <IMeshSceneNode.h>
-#include <AnimatedMeshSceneNode.h>
-#include <IMeshBuffer.h>
+#include <vector>
 
 /// Draw3D pipeline step
 void Draw3D::run(PipelineContext &context)
@@ -106,34 +104,23 @@ void DrawTracersAndESP::drawWallhackBox(PipelineContext &context, GenericCAO *ca
 
 	video::IVideoDriver *driver = context.device->getVideoDriver();
 
-	// For occluded entities: render their actual mesh through walls with textures
+	// For occluded entities: render through walls by calling the scene node's
+	// own render() with temporarily overridden depth settings.
+	// This preserves animations, bone transforms, and hardware skinning.
 	if (occluded) {
-		scene::IMesh *mesh = nullptr;
 		scene::ISceneNode *node = cao->getSceneNode();
-
-		if (auto *meshNode = dynamic_cast<scene::IMeshSceneNode *>(node))
-			mesh = meshNode->getMesh();
-		else if (auto *animNode = dynamic_cast<scene::AnimatedMeshSceneNode *>(node))
-			mesh = animNode->getMesh();
-
-		if (mesh && mesh->getMeshBufferCount() > 0) {
-			core::matrix4 ident;
-			ident.setTranslation(entity_pos);
-			driver->setTransform(video::ETS_WORLD, ident);
-
-			for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
-				scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
-				if (!buf)
-					continue;
-				// Use scene node's material to preserve textures
-				video::SMaterial mat = (i < node->getMaterialCount())
-					? node->getMaterial(i)
-					: buf->getMaterial();
+		if (node) {
+			u32 mat_count = node->getMaterialCount();
+			std::vector<video::SMaterial> saved_mats(mat_count);
+			for (u32 i = 0; i < mat_count; i++) {
+				saved_mats[i] = node->getMaterial(i);
+				video::SMaterial &mat = node->getMaterial(i);
 				mat.ZBuffer = video::ECFN_ALWAYS;
 				mat.ZWriteEnable = video::EZW_OFF;
-				driver->setMaterial(mat);
-				driver->drawMeshBuffer(buf);
 			}
+			node->render();
+			for (u32 i = 0; i < mat_count; i++)
+				node->getMaterial(i) = saved_mats[i];
 		}
 	}
 
