@@ -15,6 +15,7 @@
 #include "client/minimap.h"
 #include "client/shadows/dynamicshadowsrender.h"
 #include "util/numeric.h"
+#include <ICameraSceneNode.h>
 #include <IGUIEnvironment.h>
 
 /// Draw3D pipeline step
@@ -79,6 +80,10 @@ void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camer
 	bool show_esp = g_settings->getBool("enable_entity_esp");
 	bool show_tracers = g_settings->getBool("enable_entity_tracers");
 
+	v3f scene_camera_pos = context.client->getCamera()->getCameraNode()->getAbsolutePosition();
+	v3f look_dir = context.client->getCamera()->getDirection();
+	v3f tracer_origin = scene_camera_pos + look_dir * 0.2f * BS;
+
 	for (auto &obj : objects) {
 		GenericCAO *cao = dynamic_cast<GenericCAO *>(obj.obj);
 		if (!cao || cao->isPlayer() || cao->isLocalPlayer())
@@ -92,7 +97,7 @@ void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camer
 			driver->draw3DBox(box, esp_color);
 		}
 		if (show_tracers)
-			driver->draw3DLine(camera_pos - offset_f, pos, tracer_color);
+			driver->draw3DLine(tracer_origin, pos, tracer_color);
 	}
 }
 
@@ -113,6 +118,10 @@ void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camer
 	bool show_esp = g_settings->getBool("enable_player_esp");
 	bool show_tracers = g_settings->getBool("enable_player_tracers");
 
+	v3f scene_camera_pos = context.client->getCamera()->getCameraNode()->getAbsolutePosition();
+	v3f look_dir = context.client->getCamera()->getDirection();
+	v3f tracer_origin = scene_camera_pos + look_dir * 0.2f * BS;
+
 	for (auto &obj : objects) {
 		GenericCAO *cao = dynamic_cast<GenericCAO *>(obj.obj);
 		if (!cao || !cao->isPlayer() || cao->isLocalPlayer())
@@ -126,7 +135,7 @@ void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camer
 			driver->draw3DBox(box, esp_color);
 		}
 		if (show_tracers)
-			driver->draw3DLine(camera_pos - offset_f, pos, tracer_color);
+			driver->draw3DLine(tracer_origin, pos, tracer_color);
 	}
 }
 
