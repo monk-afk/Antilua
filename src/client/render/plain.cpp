@@ -19,6 +19,9 @@
 #include <IGUIEnvironment.h>
 #include "map.h"
 #include "nodedef.h"
+#include <IMeshSceneNode.h>
+#include <AnimatedMeshSceneNode.h>
+#include <IMeshBuffer.h>
 
 /// Draw3D pipeline step
 void Draw3D::run(PipelineContext &context)
@@ -101,19 +104,55 @@ void DrawTracersAndESP::drawWallhackBox(PipelineContext &context, GenericCAO *ca
 
 	bool occluded = isOccluded(env, world_camera_pos, world_entity_pos);
 
-	std::string color_setting = is_player ? "player_wallhack_occluded_color" : "entity_wallhack_occluded_color";
-	std::string visible_setting = is_player ? "player_wallhack_visible_color" : "entity_wallhack_visible_color";
-	video::SColor box_color = parseColor(occluded ? color_setting : visible_setting, 255);
-
-	// Draw box always visible (depth test disabled for the main wireframe)
-	// then a filled outline box on top for better visibility
 	video::IVideoDriver *driver = context.device->getVideoDriver();
+
+	// Get mesh from the entity's scene node and render through walls
+	scene::IMesh *mesh = nullptr;
+	scene::ISceneNode *node = cao->getSceneNode();
+	bool has_mesh = false;
+
+	if (auto *meshNode = dynamic_cast<scene::IMeshSceneNode *>(node)) {
+		mesh = meshNode->getMesh();
+		has_mesh = mesh && mesh->getMeshBufferCount() > 0;
+	} else if (auto *animNode = dynamic_cast<scene::AnimatedMeshSceneNode *>(node)) {
+		mesh = animNode->getMesh();
+		has_mesh = mesh && mesh->getMeshBufferCount() > 0;
+	}
+
+	if (has_mesh) {
+		core::matrix4 ident;
+		ident.setTranslation(entity_pos);
+		driver->setTransform(video::ETS_WORLD, ident);
+
+		for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
+			scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
+			if (!buf)
+				continue;
+			video::SMaterial mat = buf->getMaterial();
+			mat.ZBuffer = video::ECFN_ALWAYS;
+			mat.ZWriteEnable = video::EZW_OFF;
+			driver->setMaterial(mat);
+			driver->drawMeshBuffer(buf);
+		}
+	}
+
+	// Draw tinted box overlay for visual feedback
+	video::SMaterial box_mat;
+	box_mat.ZBuffer = video::ECFN_ALWAYS;
+	box_mat.ZWriteEnable = video::EZW_OFF;
+	box_mat.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+	box_mat.BackfaceCulling = false;
+	driver->setMaterial(box_mat);
+
+	video::SColor tint_color = occluded
+		? parseColor(is_player ? "player_wallhack_occluded_color" : "entity_wallhack_occluded_color", 100)
+		: parseColor(is_player ? "player_wallhack_visible_color" : "entity_wallhack_visible_color", 60);
 
 	aabb3f box(v3f(0,0,0), v3f(0,0,0));
 	if (cao->getSelectionBox(&box)) {
 		box.MinEdge += entity_pos;
 		box.MaxEdge += entity_pos;
-		driver->draw3DBox(box, box_color);
+		driver->draw3DBox(box, tint_color);
 	}
 }
 
