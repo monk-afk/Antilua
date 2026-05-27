@@ -106,37 +106,38 @@ void DrawTracersAndESP::drawWallhackBox(PipelineContext &context, GenericCAO *ca
 
 	video::IVideoDriver *driver = context.device->getVideoDriver();
 
-	// Get mesh from the entity's scene node and render through walls
-	scene::IMesh *mesh = nullptr;
-	scene::ISceneNode *node = cao->getSceneNode();
-	bool has_mesh = false;
+	// For occluded entities: render their actual mesh through walls with textures
+	if (occluded) {
+		scene::IMesh *mesh = nullptr;
+		scene::ISceneNode *node = cao->getSceneNode();
 
-	if (auto *meshNode = dynamic_cast<scene::IMeshSceneNode *>(node)) {
-		mesh = meshNode->getMesh();
-		has_mesh = mesh && mesh->getMeshBufferCount() > 0;
-	} else if (auto *animNode = dynamic_cast<scene::AnimatedMeshSceneNode *>(node)) {
-		mesh = animNode->getMesh();
-		has_mesh = mesh && mesh->getMeshBufferCount() > 0;
-	}
+		if (auto *meshNode = dynamic_cast<scene::IMeshSceneNode *>(node))
+			mesh = meshNode->getMesh();
+		else if (auto *animNode = dynamic_cast<scene::AnimatedMeshSceneNode *>(node))
+			mesh = animNode->getMesh();
 
-	if (has_mesh) {
-		core::matrix4 ident;
-		ident.setTranslation(entity_pos);
-		driver->setTransform(video::ETS_WORLD, ident);
+		if (mesh && mesh->getMeshBufferCount() > 0) {
+			core::matrix4 ident;
+			ident.setTranslation(entity_pos);
+			driver->setTransform(video::ETS_WORLD, ident);
 
-		for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
-			scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
-			if (!buf)
-				continue;
-			video::SMaterial mat = buf->getMaterial();
-			mat.ZBuffer = video::ECFN_ALWAYS;
-			mat.ZWriteEnable = video::EZW_OFF;
-			driver->setMaterial(mat);
-			driver->drawMeshBuffer(buf);
+			for (u32 i = 0; i < mesh->getMeshBufferCount(); i++) {
+				scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
+				if (!buf)
+					continue;
+				// Use scene node's material to preserve textures
+				video::SMaterial mat = (i < node->getMaterialCount())
+					? node->getMaterial(i)
+					: buf->getMaterial();
+				mat.ZBuffer = video::ECFN_ALWAYS;
+				mat.ZWriteEnable = video::EZW_OFF;
+				driver->setMaterial(mat);
+				driver->drawMeshBuffer(buf);
+			}
 		}
 	}
 
-	// Draw tinted box overlay for visual feedback
+	// Draw tinted box overlay — red for occluded, subtle green for visible
 	video::SMaterial box_mat;
 	box_mat.ZBuffer = video::ECFN_ALWAYS;
 	box_mat.ZWriteEnable = video::EZW_OFF;
@@ -145,8 +146,8 @@ void DrawTracersAndESP::drawWallhackBox(PipelineContext &context, GenericCAO *ca
 	driver->setMaterial(box_mat);
 
 	video::SColor tint_color = occluded
-		? parseColor(is_player ? "player_wallhack_occluded_color" : "entity_wallhack_occluded_color", 100)
-		: parseColor(is_player ? "player_wallhack_visible_color" : "entity_wallhack_visible_color", 60);
+		? parseColor(is_player ? "player_wallhack_occluded_color" : "entity_wallhack_occluded_color", 80)
+		: parseColor(is_player ? "player_wallhack_visible_color" : "entity_wallhack_visible_color", 40);
 
 	aabb3f box(v3f(0,0,0), v3f(0,0,0));
 	if (cao->getSelectionBox(&box)) {
