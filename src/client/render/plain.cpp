@@ -92,7 +92,7 @@ void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camer
 			driver->draw3DBox(box, esp_color);
 		}
 		if (show_tracers)
-			driver->draw3DLine(camera_pos, pos, tracer_color);
+			driver->draw3DLine(camera_pos - offset_f, pos, tracer_color);
 	}
 }
 
@@ -126,7 +126,7 @@ void DrawTracersAndESP::drawPlayerESP(PipelineContext &context, const v3f &camer
 			driver->draw3DBox(box, esp_color);
 		}
 		if (show_tracers)
-			driver->draw3DLine(camera_pos, pos, tracer_color);
+			driver->draw3DLine(camera_pos - offset_f, pos, tracer_color);
 	}
 }
 
