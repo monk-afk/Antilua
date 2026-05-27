@@ -664,10 +664,6 @@ void set_default_settings()
 	settings->setDefault("enable_player_wallhack", "false");
 	settings->setDefault("entity_esp_color", "(255, 255, 255)");
 	settings->setDefault("player_esp_color", "(255, 255, 255)");
-	settings->setDefault("entity_wallhack_visible_color", "(0, 255, 0)");
-	settings->setDefault("entity_wallhack_occluded_color", "(255, 0, 0)");
-	settings->setDefault("player_wallhack_visible_color", "(0, 255, 0)");
-	settings->setDefault("player_wallhack_occluded_color", "(255, 0, 0)");
 	settings->setDefault("scaffold", "false");
 	settings->setDefault("killaura", "false");
 	settings->setDefault("airjump", "false");

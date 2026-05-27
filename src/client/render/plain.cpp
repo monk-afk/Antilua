@@ -124,24 +124,6 @@ void DrawTracersAndESP::drawWallhackBox(PipelineContext &context, GenericCAO *ca
 		}
 	}
 
-	// Draw tinted box overlay — red for occluded, subtle green for visible
-	video::SMaterial box_mat;
-	box_mat.ZBuffer = video::ECFN_ALWAYS;
-	box_mat.ZWriteEnable = video::EZW_OFF;
-	box_mat.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-	box_mat.BackfaceCulling = false;
-	driver->setMaterial(box_mat);
-
-	video::SColor tint_color = occluded
-		? parseColor(is_player ? "player_wallhack_occluded_color" : "entity_wallhack_occluded_color", 80)
-		: parseColor(is_player ? "player_wallhack_visible_color" : "entity_wallhack_visible_color", 40);
-
-	aabb3f box(v3f(0,0,0), v3f(0,0,0));
-	if (cao->getSelectionBox(&box)) {
-		box.MinEdge += entity_pos;
-		box.MaxEdge += entity_pos;
-		driver->draw3DBox(box, tint_color);
-	}
 }
 
 void DrawTracersAndESP::drawEntityESP(PipelineContext &context, const v3f &camera_pos)
