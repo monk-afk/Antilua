@@ -71,8 +71,8 @@ public:
 
 private:
 	video::SColor parseColor(const std::string &setting, u8 alpha = 255);
-	void drawEntityESP(PipelineContext &context, const v3f &camera_pos, const v3f &offset);
-	void drawPlayerESP(PipelineContext &context, const v3f &camera_pos, const v3f &offset);
+	void drawEntityESP(PipelineContext &context, const v3f &camera_pos);
+	void drawPlayerESP(PipelineContext &context, const v3f &camera_pos);
 };
 
 /**
