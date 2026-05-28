@@ -66,6 +66,15 @@ function nlist.clear(list)
 	end
 end
 
+function nlist.delete(list)
+	local df = get_dflist(list)
+	if df then
+		minetest.settings:set(df, "")
+	else
+		storage:set_string(list, "")
+	end
+end
+
 function nlist.select(list)
 	sl = list
 	nlist.selected = list
@@ -171,11 +180,19 @@ ws.rg('NlEdMode', { category = 'nList', setting = 'nlist_edmode',
 		local lists = nlist.get_lists()
 		if #entries == 0 then entries = {" "} end
 		if #lists == 0 then lists = {" "} end
+
+		-- Find which list index is currently selected
+		local sel_idx = 1
+		for i, name in ipairs(lists) do
+			if name == sl then sel_idx = i break end
+		end
+
 		local fs = "size[8,7.5]"
 		fs = fs .. "label[0,0;List: " .. core.formspec_escape(sl) .. "]"
 		fs = fs .. "textlist[0,0.5;5,5;entries;" .. core.formspec_escape(table.concat(entries, ",")) .. ";1]"
-		fs = fs .. "textlist[5.5,0.5;2.5,3;list_select;" .. core.formspec_escape(table.concat(lists, ",")) .. ";1]"
-		fs = fs .. "label[5.5,3.7;Click a list to select]"
+		fs = fs .. "textlist[5.5,0.5;2.5,3;list_select;" .. core.formspec_escape(table.concat(lists, ",")) .. ";" .. sel_idx .. "]"
+		fs = fs .. "button[5.5,3.8;1.2,0.8;btn_addlist;+]"
+		fs = fs .. "button[6.8,3.8;1.2,0.8;btn_rmlist;-]"
 		fs = fs .. "field[0,6.5;2.5,0.8;item_input;;]"
 		fs = fs .. "button[2.6,6.5;1.2,0.8;btn_add;Add]"
 		fs = fs .. "button[3.9,6.5;1.2,0.8;btn_remove;Remove]"
@@ -188,15 +205,28 @@ ws.rg('NlEdMode', { category = 'nList', setting = 'nlist_edmode',
 core.register_on_formspec_input(function(formname, fields)
 	if formname ~= "cheat_settings:nlist_edmode:custom" then return end
 
-	if fields.list_select then
+	-- Exit on Done or ESC (no relevant fields)
+	if fields.btn_done or not next(fields) then return end
+
+	if fields.btn_addlist and fields.item_input and fields.item_input ~= "" then
+		nlist.set(fields.item_input, {})
+		nlist.select(fields.item_input)
+	elseif fields.btn_rmlist then
+		local lists = nlist.get_lists()
+		local idx = tonumber(fields.list_select)
+		if idx and idx > 0 and idx <= #lists then
+			nlist.delete(lists[idx])
+			if sl == lists[idx] then
+				nlist.select("default")
+			end
+		end
+	elseif fields.list_select then
 		local lists = nlist.get_lists()
 		local idx = tonumber(fields.list_select)
 		if idx and idx > 0 and idx <= #lists then
 			nlist.select(lists[idx])
 		end
-	end
-
-	if fields.btn_add and fields.item_input and fields.item_input ~= "" then
+	elseif fields.btn_add and fields.item_input and fields.item_input ~= "" then
 		nlist.add(sl, fields.item_input)
 	elseif fields.btn_remove then
 		local entries = nlist.get(sl)
