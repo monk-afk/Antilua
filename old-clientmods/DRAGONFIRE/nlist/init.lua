@@ -167,14 +167,15 @@ ws.rg('NlEdMode', { category = 'nList', setting = 'nlist_edmode',
 	on_start = function(self) end,
 	on_stop = function(self) nlist.hide() end,
 	get_formspec = function(setting)
-		local entries = table.concat(nlist.get(sl), ",")
-		local lists = table.concat(nlist.get_lists(), ",")
-		if entries == "" then entries = " " end
-		if lists == "" then lists = " " end
+		local entries = nlist.get(sl)
+		local lists = nlist.get_lists()
+		if #entries == 0 then entries = {" "} end
+		if #lists == 0 then lists = {" "} end
 		local fs = "size[8,7.5]"
 		fs = fs .. "label[0,0;List: " .. core.formspec_escape(sl) .. "]"
-		fs = fs .. "textarea[0,0.5;5,5;;" .. core.formspec_escape(entries) .. ";]"
-		fs = fs .. "dropdown[5.5,0.5;2.5;list_select;" .. lists .. ";]"
+		fs = fs .. "textlist[0,0.5;5,5;entries;" .. core.formspec_escape(table.concat(entries, ",")) .. ";1]"
+		fs = fs .. "textlist[5.5,0.5;2.5,3;list_select;" .. core.formspec_escape(table.concat(lists, ",")) .. ";1]"
+		fs = fs .. "label[5.5,3.7;Click a list to select]"
 		fs = fs .. "field[0,6.5;2.5,0.8;item_input;;]"
 		fs = fs .. "button[2.6,6.5;1.2,0.8;btn_add;Add]"
 		fs = fs .. "button[3.9,6.5;1.2,0.8;btn_remove;Remove]"
@@ -186,16 +187,27 @@ ws.rg('NlEdMode', { category = 'nList', setting = 'nlist_edmode',
 
 core.register_on_formspec_input(function(formname, fields)
 	if formname ~= "cheat_settings:nlist_edmode:custom" then return end
+
+	if fields.list_select then
+		local lists = nlist.get_lists()
+		local idx = tonumber(fields.list_select)
+		if idx and idx > 0 and idx <= #lists then
+			nlist.select(lists[idx])
+		end
+	end
+
 	if fields.btn_add and fields.item_input and fields.item_input ~= "" then
 		nlist.add(sl, fields.item_input)
-	elseif fields.btn_remove and fields.item_input and fields.item_input ~= "" then
-		nlist.remove(sl, fields.item_input)
+	elseif fields.btn_remove then
+		local entries = nlist.get(sl)
+		local idx = tonumber(fields.entries)
+		if idx and idx > 0 and idx <= #entries then
+			nlist.remove(sl, entries[idx])
+		end
 	elseif fields.btn_clear then
 		nlist.clear(sl)
 	end
-	if fields.list_select and fields.list_select ~= "" then
-		nlist.select(fields.list_select)
-	end
+
 	core.show_cheat_settings_form("nlist_edmode")
 end)
 
