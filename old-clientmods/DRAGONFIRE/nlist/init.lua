@@ -178,26 +178,34 @@ ws.rg('NlEdMode', { category = 'nList', setting = 'nlist_edmode',
 	get_formspec = function(setting)
 		local entries = nlist.get(sl)
 		local lists = nlist.get_lists()
-		if #entries == 0 then entries = {" "} end
-		if #lists == 0 then lists = {" "} end
 
-		-- Find which list index is currently selected
+		local function esc_list(t)
+			local out = {}
+			for _, v in ipairs(t) do
+				table.insert(out, core.formspec_escape(v))
+			end
+			return table.concat(out, ",")
+		end
+
+		local entries_str = #entries > 0 and esc_list(entries) or " "
+		local lists_str = #lists > 0 and esc_list(lists) or " "
+
 		local sel_idx = 1
 		for i, name in ipairs(lists) do
 			if name == sl then sel_idx = i break end
 		end
 
-		local fs = "size[8,7.5]"
+		local fs = "size[8,9]"
 		fs = fs .. "label[0,0;List: " .. core.formspec_escape(sl) .. "]"
-		fs = fs .. "textlist[0,0.5;5,5;entries;" .. core.formspec_escape(table.concat(entries, ",")) .. ";1]"
-		fs = fs .. "textlist[5.5,0.5;2.5,3;list_select;" .. core.formspec_escape(table.concat(lists, ",")) .. ";" .. sel_idx .. "]"
-		fs = fs .. "button[5.5,3.8;1.2,0.8;btn_addlist;+]"
-		fs = fs .. "button[6.8,3.8;1.2,0.8;btn_rmlist;-]"
-		fs = fs .. "field[0,6.5;2.5,0.8;item_input;;]"
-		fs = fs .. "button[2.6,6.5;1.2,0.8;btn_add;Add]"
-		fs = fs .. "button[3.9,6.5;1.2,0.8;btn_remove;Remove]"
-		fs = fs .. "button[5.2,6.5;1.2,0.8;btn_clear;Clear]"
-		fs = fs .. "button_exit[6.5,6.5;1.5,0.8;btn_done;Done]"
+		fs = fs .. "textlist[0,0.5;5,6;entries;" .. entries_str .. ";1]"
+		fs = fs .. "textlist[5.5,0.5;2.5,4;list_select;" .. lists_str .. ";" .. sel_idx .. "]"
+		fs = fs .. "button[5.5,4.8;1.2,0.8;btn_addlist;+]"
+		fs = fs .. "button[6.8,4.8;1.2,0.8;btn_rmlist;-]"
+		fs = fs .. "field[0,7.3;2.5,0.8;item_input;;]"
+		fs = fs .. "button[2.6,7.3;1.2,0.8;btn_add;Add]"
+		fs = fs .. "button[3.9,7.3;1.2,0.8;btn_remove;Remove]"
+		fs = fs .. "button[5.2,7.3;1.2,0.8;btn_clear;Clear]"
+		fs = fs .. "button_exit[6.5,7.3;1.5,0.8;btn_done;Done]"
 		return fs
 	end,
 })
