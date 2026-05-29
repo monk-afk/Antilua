@@ -23,10 +23,15 @@ public:
 
 		ESC,
 
+		// Camera look (keyboard)
+		CAMERA_YAW_LEFT,
+		CAMERA_YAW_RIGHT,
+		CAMERA_PITCH_UP,
+		CAMERA_PITCH_DOWN,
+
 		// Other
 		DROP,
 		INVENTORY,
-		ENDERCHEST,
 		CHAT,
 		CMD,
 		CMD_LOCAL,
@@ -47,7 +52,6 @@ public:
 		TOGGLE_HUD,
 		TOGGLE_CHAT,
 		TOGGLE_FOG,
-		TOGGLE_CHEAT_MENU,
 		TOGGLE_UPDATE_CAMERA,
 		TOGGLE_DEBUG,
 		TOGGLE_PROFILER,
@@ -56,14 +60,6 @@ public:
 		DECREASE_VIEWING_RANGE,
 		RANGESELECT,
 		ZOOM,
-		KILLAURA,
-		FREECAM,
-		SCAFFOLD,
-		SELECT_UP,
-		SELECT_DOWN,
-		SELECT_LEFT,
-		SELECT_RIGHT,
-		SELECT_CONFIRM,
 
 		QUICKTUNE_NEXT,
 		QUICKTUNE_PREV,
@@ -103,6 +99,18 @@ public:
 		SLOT_30,
 		SLOT_31,
 		SLOT_32,
+
+		// DragonfireClient-specific keys (appended to avoid enum value shifts)
+		ENDERCHEST,
+		TOGGLE_CHEAT_MENU,
+		KILLAURA,
+		FREECAM,
+		SCAFFOLD,
+		SELECT_UP,
+		SELECT_DOWN,
+		SELECT_LEFT,
+		SELECT_RIGHT,
+		SELECT_CONFIRM,
 
 		// Fake keycode for array size and internal checks
 		INTERNAL_ENUM_COUNT
