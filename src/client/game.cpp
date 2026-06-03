@@ -1852,10 +1852,12 @@ void Game::freecamChangedCallback(const std::string &, void *data)
 	Game *game = (Game *)data;
 	LocalPlayer *player = game->client->getEnv().getLocalPlayer();
 	if (g_settings->getBool("freecam")) {
+		game->m_freecam_prev_camera_mode = game->camera->getCameraMode();
 		game->camera->setCameraMode(CAMERA_MODE_THIRD);
 		player->freecamEnable();
 	} else {
 		player->freecamDisable();
+		game->camera->setCameraMode(game->m_freecam_prev_camera_mode);
 	}
 	game->updateCameraMode();
 }
