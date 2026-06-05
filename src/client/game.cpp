@@ -2155,14 +2155,27 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 		cam->camera_yaw   -= dist.X * m_cache_mouse_sensitivity * sens_scale;
 		cam->camera_pitch += dist.Y * m_cache_mouse_sensitivity * sens_scale;
 
-		if (dist.X != 0 || dist.Y != 0)
+		if (dist.X != 0 || dist.Y != 0) {
 			input->setMousePos(center.X, center.Y);
+			if (auto *player = client->getEnv().getLocalPlayer()) {
+				player->unlockYaw();
+				player->unlockPitch();
+			}
+		}
 	}
 
 	if (m_cache_enable_joysticks) {
 		f32 c = m_cache_joystick_frustum_sensitivity * dtime * sens_scale;
-		cam->camera_yaw -= input->joystick.getAxisWithoutDead(JA_FRUSTUM_HORIZONTAL) * c;
-		cam->camera_pitch += input->joystick.getAxisWithoutDead(JA_FRUSTUM_VERTICAL) * c;
+		f32 jx = input->joystick.getAxisWithoutDead(JA_FRUSTUM_HORIZONTAL);
+		f32 jy = input->joystick.getAxisWithoutDead(JA_FRUSTUM_VERTICAL);
+		cam->camera_yaw -= jx * c;
+		cam->camera_pitch += jy * c;
+		if (jx != 0 || jy != 0) {
+			if (auto *player = client->getEnv().getLocalPlayer()) {
+				player->unlockYaw();
+				player->unlockPitch();
+			}
+		}
 	}
 
 	// Keyboard look
