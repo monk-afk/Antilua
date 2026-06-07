@@ -6,6 +6,7 @@
 #include "sky.h"
 
 #include "camera.h"
+#include "mesh.h"
 #include "client/renderingengine.h"
 #include "client/texturesource.h"
 #include "noise.h" // easeCurve
@@ -58,11 +59,17 @@ Sky::Sky(s32 id, RenderingEngine *rendering_engine, ITextureSource *tsrc, IShade
 	m_moon_params = SkyboxDefaults::getMoonDefaults();
 	m_star_params = SkyboxDefaults::getStarDefaults();
 
+	m_enable_shaders = g_settings->getBool("enable_shaders");
+
 	// Create materials
 
 	m_materials[0] = baseMaterial();
-	m_materials[0].MaterialType =
-			ssrc->getShaderInfo(ssrc->getShaderRaw("stars_shader", true)).material;
+	if (m_enable_shaders) {
+		m_materials[0].MaterialType =
+				ssrc->getShaderInfo(ssrc->getShaderRaw("stars_shader", true)).material;
+	} else {
+		m_materials[0].MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+	}
 
 	m_materials[1] = baseMaterial();
 	m_materials[1].MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
@@ -659,7 +666,11 @@ void Sky::draw_stars(video::IVideoDriver * driver, float wicked_time_of_day)
 	color.a *= alpha;
 	if (color.a <= 0.0f) // Stars are only drawn when not fully transparent
 		return;
-	m_materials[0].ColorParam = color.toSColor();
+	if (m_enable_shaders) {
+		m_materials[0].ColorParam = color.toSColor();
+	} else {
+		setMeshBufferColor(m_stars.get(), color.toSColor());
+	}
 
 	auto day_rotation = core::matrix4().setRotationAxisRadians(2.0f * M_PI * (wicked_time_of_day - 0.25f), v3f(0.0f, 0.0f, 1.0f));
 	auto orbit_rotation = core::matrix4().setRotationAxisRadians(m_sky_params.body_orbit_tilt * M_PI / 180.0, v3f(1.0f, 0.0f, 0.0f));
@@ -862,7 +873,8 @@ void Sky::updateStars()
 		indices.push_back(i * 4 + 3);
 		indices.push_back(i * 4 + 0);
 	}
-	m_stars->setHardwareMappingHint(scene::EHM_STATIC);
+	if (m_enable_shaders)
+		m_stars->setHardwareMappingHint(scene::EHM_STATIC);
 }
 
 void Sky::setSkyColors(const SkyColor &sky_color)

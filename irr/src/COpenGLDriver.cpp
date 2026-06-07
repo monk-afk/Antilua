@@ -249,6 +249,9 @@ bool COpenGLDriver::updateVertexHardwareBuffer(SHWBufferLink_opengl *HWBuffer)
 	if (!FeatureAvailable[IRR_ARB_vertex_buffer_object])
 		return false;
 
+	if (!m_vbo_enabled)
+		return false;
+
 	const auto *vb = IRR_DOWN_CAST<const scene::IVertexBuffer *>(HWBuffer->Buffer);
 	const void *vertices = vb->getData();
 	const u32 vertexCount = vb->getCount();
@@ -329,6 +332,8 @@ bool COpenGLDriver::updateIndexHardwareBuffer(SHWBufferLink_opengl *link)
 	if (!FeatureAvailable[IRR_ARB_vertex_buffer_object])
 		return false;
 
+	if (!m_vbo_enabled)
+		return false;
 
 	const auto *ib = IRR_DOWN_CAST<const scene::IIndexBuffer *>(link->Buffer);
 
@@ -401,7 +406,7 @@ bool COpenGLDriver::updateHardwareBuffer(SHWBufferLink *_link)
 //! Create hardware buffer from meshbuffer
 COpenGLDriver::SHWBufferLink *COpenGLDriver::createHardwareBuffer(const scene::HWBuffer *buf)
 {
-	if (!buf || buf->MappingHint == scene::EHM_NEVER)
+	if (!buf || buf->MappingHint == scene::EHM_NEVER || !m_vbo_enabled)
 		return nullptr;
 
 	SHWBufferLink_opengl *link = new SHWBufferLink_opengl(buf);
@@ -413,6 +418,12 @@ COpenGLDriver::SHWBufferLink *COpenGLDriver::createHardwareBuffer(const scene::H
 	}
 
 	return link;
+}
+
+bool COpenGLDriver::isFBOAvailable() const
+{
+	return FeatureAvailable[IRR_EXT_framebuffer_object] ||
+		FeatureAvailable[IRR_ARB_framebuffer_object];
 }
 
 void COpenGLDriver::deleteHardwareBuffer(SHWBufferLink *_link)

@@ -7,6 +7,7 @@ local path = core.get_builtin_path() .. "common" .. DIR_DELIM .. "settings" .. D
 
 local component_funcs =  dofile(path .. "components.lua")
 local shadows_component =  dofile(path .. "shadows_component.lua")
+local shader_warning_component = dofile(path .. "shader_warning_component.lua")
 
 local loaded = false
 local info_icon_path = core.formspec_escape(defaulttexturedir .. "settings_info.png")
@@ -168,6 +169,11 @@ local function load()
 		note.requires = setting_info.requires
 		note.context = setting_info.context
 		table.insert(content, idx, note)
+
+		idx = table.indexof(content, "enable_shaders")
+		if idx then
+			table.insert(content, idx + 1, shader_warning_component)
+		end
 	end
 
 	-- These must not be translated, as they need to show in the local
@@ -370,6 +376,8 @@ local function check_requirements(name, requires, context)
 	local touch_controls = core.settings:get("touch_controls")
 	local touch_interaction_style = core.settings:get("touch_interaction_style")
 	local shadows_support = core.driver_supports_shadows()
+	local video_driver = core.get_active_driver()
+	local shaders_support = video_driver == "opengl" or video_driver == "opengl3" or video_driver == "ogles2"
 	local special = {
 		android = PLATFORM == "Android",
 		desktop = PLATFORM ~= "Android",
@@ -380,6 +388,8 @@ local function check_requirements(name, requires, context)
 		keyboard_mouse = not touch_support or (touch_controls == "auto" or not core.is_yes(touch_controls)),
 		touch_interaction_style_tap = touch_interaction_style ~= "buttons_crosshair",
 		shadows_support = shadows_support,
+		shaders_support = shaders_support,
+		shaders = core.settings:get_bool("enable_shaders") and shaders_support,
 	}
 
 	for req_key, req_value in pairs(requires) do

@@ -48,10 +48,11 @@ struct MeshMakeData
 	bool m_generate_minimap = false;
 	bool m_smooth_lighting = false;
 	bool m_enable_water_reflections = false;
+	bool m_use_shaders;
 
 	const NodeDefManager *m_nodedef;
 
-	MeshMakeData(const NodeDefManager *ndef, u16 side_lingth, MeshGrid mesh_grid);
+	MeshMakeData(const NodeDefManager *ndef, u16 side_lingth, MeshGrid mesh_grid, bool use_shaders);
 
 	/*
 		Copy block data manually (to allow optimizations by the caller)
@@ -294,6 +295,13 @@ private:
 	int m_last_crack;
 	// Indicates which materials to apply the crack to
 	std::vector<MeshIndex> m_crack_materials;
+
+	// Whether to use shaders
+	bool m_enable_shaders;
+	// Last day-night ratio passed to animate(), used for FFP path
+	u32 m_last_daynight_ratio = (u32)-1;
+	// Per-vertex color diffs for day/night animation (FFP path)
+	std::map<std::pair<u8, u32>, std::map<u32, video::SColor>> m_daynight_diffs;
 
 	// Animation info: texture animation
 	// Maps mesh and mesh buffer indices to TileSpecs

@@ -186,6 +186,14 @@ static void applyToMesh(scene::IMesh *mesh, const F &fn)
 	}
 }
 
+void colorizeMeshBuffer(scene::IMeshBuffer *buf, const video::SColor *buffercolor)
+{
+	applyToMeshBuffer(buf, [buffercolor](auto *vertex) {
+		vertex->Color = *buffercolor;
+		applyFacesShading(vertex->Color, vertex->Normal);
+	});
+}
+
 void colorizeMeshBuffer(scene::IMeshBuffer *buf, video::SColor buf_color,
 		f32 ambient_light, v3f dir_light)
 {

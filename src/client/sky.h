@@ -178,6 +178,7 @@ private:
 	float m_time_of_day;
 	float m_time_brightness;
 	bool m_sunlight_seen;
+	bool m_enable_shaders = false;
 	float m_brightness = 0.5f;
 	float m_cloud_brightness = 0.5f;
 	bool m_clouds_visible; // Whether clouds are disabled due to player underground

@@ -86,9 +86,14 @@ Hud::Hud(Client *client, LocalPlayer *player,
 
 	// Initialize m_selection_material
 	IShaderSource *shdrsrc = client->getShaderSource();
+	bool enable_shaders = g_settings->getBool("enable_shaders");
 	if (m_mode == HIGHLIGHT_HALO) {
-		auto shader_id = shdrsrc->getShaderRaw("selection_shader", true);
-		m_selection_material.MaterialType = shdrsrc->getShaderInfo(shader_id).material;
+		if (enable_shaders) {
+			auto shader_id = shdrsrc->getShaderRaw("selection_shader", true);
+			m_selection_material.MaterialType = shdrsrc->getShaderInfo(shader_id).material;
+		} else {
+			m_selection_material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+		}
 	} else {
 		m_selection_material.MaterialType = video::EMT_SOLID;
 	}
@@ -104,7 +109,11 @@ Hud::Hud(Client *client, LocalPlayer *player,
 	}
 
 	// Initialize m_block_bounds_material
-	m_block_bounds_material.MaterialType = video::EMT_SOLID;
+	if (enable_shaders) {
+		m_block_bounds_material.MaterialType = video::EMT_SOLID;
+	} else {
+		m_block_bounds_material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+	}
 	m_block_bounds_material.Thickness =
 			rangelim(g_settings->getS16("selectionbox_width"), 1, 5);
 

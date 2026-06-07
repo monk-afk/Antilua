@@ -26,7 +26,45 @@ void AnimationInfo::updateTexture(video::SMaterial &material, float animation_ti
 	}
 }
 
-void TileLayer::applyMaterialOptions(video::SMaterial &material, int layer) const
+void TileLayer::applyMaterialOptions(video::SMaterial &material) const
+{
+	if (!texture)
+		return;
+	material.setTexture(0, texture);
+	material.BackfaceCulling = (material_flags & MATERIAL_FLAG_BACKFACE_CULLING) != 0;
+	material.setTexture(1, nullptr);
+
+	switch (material_type) {
+	case TILE_MATERIAL_BASIC:
+	case TILE_MATERIAL_WAVING_LEAVES:
+	case TILE_MATERIAL_WAVING_PLANTS:
+	case TILE_MATERIAL_WAVING_LIQUID_BASIC:
+	case TILE_MATERIAL_LIQUID_OPAQUE:
+	case TILE_MATERIAL_WAVING_LIQUID_OPAQUE:
+		material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF;
+		break;
+	case TILE_MATERIAL_OPAQUE:
+	case TILE_MATERIAL_PLAIN:
+		material.MaterialType = video::EMT_SOLID;
+		break;
+	case TILE_MATERIAL_ALPHA:
+	case TILE_MATERIAL_LIQUID_TRANSPARENT:
+	case TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT:
+	case TILE_MATERIAL_PLAIN_ALPHA:
+		material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+		break;
+	default:
+		material.MaterialType = video::EMT_SOLID;
+		break;
+	}
+
+	if (!(material_flags & MATERIAL_FLAG_TILEABLE_HORIZONTAL))
+		material.TextureLayers[0].TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+	if (!(material_flags & MATERIAL_FLAG_TILEABLE_VERTICAL))
+		material.TextureLayers[0].TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+}
+
+void TileLayer::applyMaterialOptionsWithShaders(video::SMaterial &material, int layer) const
 {
 	material.setTexture(0, texture);
 

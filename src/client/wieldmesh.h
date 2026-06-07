@@ -129,6 +129,8 @@ public:
 	// Must only be used if the constructor was called with lighting = false
 	void setColor(video::SColor color);
 
+	void setNodeLightColor(video::SColor color);
+
 	void setLightColorAndAnimation(video::SColor color, float animation_time);
 
 	scene::IMesh *getMesh() { return m_meshnode->getMesh(); }
@@ -148,6 +150,7 @@ private:
 	// Material types used as fallback
 	video::E_MATERIAL_TYPE m_material_type;
 
+	bool m_enable_shaders;
 	bool m_anisotropic_filter;
 	bool m_bilinear_filter;
 	bool m_trilinear_filter;

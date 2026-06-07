@@ -281,7 +281,7 @@ void UpscaleStep::run(PipelineContext &context)
 std::unique_ptr<RenderStep> create3DStage(Client *client, v2f scale)
 {
 	RenderStep *step = new Draw3D();
-	if (g_settings->getBool("enable_post_processing")) {
+	if (g_settings->getBool("enable_shaders") && g_settings->getBool("enable_post_processing")) {
 		RenderPipeline *pipeline = new RenderPipeline();
 		pipeline->addStep(pipeline->own(std::unique_ptr<RenderStep>(step)));
 
@@ -307,7 +307,7 @@ RenderStep* addUpscaling(RenderPipeline *pipeline, RenderStep *previousStep, v2f
 		return previousStep;
 
 	// post-processing pipeline takes care of rescaling
-	if (g_settings->getBool("enable_post_processing"))
+	if (g_settings->getBool("enable_shaders") && g_settings->getBool("enable_post_processing"))
 		return previousStep;
 
 	auto driver = client->getSceneManager()->getVideoDriver();

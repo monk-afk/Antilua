@@ -422,6 +422,9 @@ private:
 	// Driver supports GLSL (ES) 3.x?
 	bool m_have_glsl3 = false;
 
+	// Shaders are enabled?
+	bool m_enabled = true;
+
 	// Cache of source shaders
 	// This should be only accessed from the main thread
 	SourceShaderCache m_sourcecache;
@@ -474,6 +477,14 @@ ShaderSource::ShaderSource()
 
 	auto *driver = RenderingEngine::get_video_driver();
 	const auto driver_type = driver->getDriverType();
+
+	m_enabled = g_settings->getBool("enable_shaders");
+	if (!m_enabled) {
+		warningstream << "You are running " PROJECT_NAME_C " with shaders disabled, "
+			"this is not a recommended configuration." << std::endl;
+		return;
+	}
+
 	if (driver_type != video::EDT_NULL) {
 		auto *gpu = driver->getGPUProgrammingServices();
 		if (!driver->queryFeature(video::EVDF_ARB_GLSL) || !gpu) {
@@ -496,6 +507,9 @@ ShaderSource::ShaderSource()
 
 ShaderSource::~ShaderSource()
 {
+	if (!m_enabled)
+		return;
+
 	MutexAutoLock lock(m_shaderinfo_cache_mutex);
 
 	// Delete materials
@@ -630,6 +644,9 @@ void ShaderSource::insertSourceShader(const std::string &name_of_shader,
 
 void ShaderSource::rebuildShaders()
 {
+	if (!m_enabled)
+		return;
+
 	MutexAutoLock lock(m_shaderinfo_cache_mutex);
 
 	// Delete materials
@@ -656,6 +673,11 @@ void ShaderSource::rebuildShaders()
 
 void ShaderSource::generateShader(ShaderInfo &shaderinfo)
 {
+	if (!m_enabled) {
+		shaderinfo.material = shaderinfo.base_material;
+		return;
+	}
+
 	const auto &name = shaderinfo.name;
 	const auto &input_const = shaderinfo.input_constants;
 

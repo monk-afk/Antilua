@@ -231,6 +231,7 @@ WieldMeshSceneNode::WieldMeshSceneNode(scene::ISceneManager *mgr, s32 id):
 	scene::ISceneNode(mgr->getRootSceneNode(), mgr, id),
 	m_material_type(video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF)
 {
+	m_enable_shaders = g_settings->getBool("enable_shaders");
 	m_anisotropic_filter = g_settings->getBool("anisotropic_filter");
 	m_bilinear_filter = g_settings->getBool("bilinear_filter");
 	m_trilinear_filter = g_settings->getBool("trilinear_filter");
@@ -356,7 +357,8 @@ static scene::SMesh *createGenericNodeMesh(Client *client, MapNode n,
 
 	MeshCollector collector(v3f(0), v3f());
 	{
-		MeshMakeData mmd(client->ndef(), 1, MeshGrid{1});
+		MeshMakeData mmd(client->ndef(), 1, MeshGrid{1},
+				g_settings->getBool("enable_shaders"));
 		mmd.fillSingleNode(n);
 		MapblockMeshGenerator(&mmd, &collector).generate();
 	}
@@ -433,7 +435,7 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 	const ContentFeatures &f = ndef->get(def.name);
 	const NodeVisuals &v = *(f.visuals);
 
-	{
+	if (m_enable_shaders) {
 		// Initialize material type used by setExtruded
 		u32 shader_id = shdsrc->getShader("object_shader", TILE_MATERIAL_BASIC, NDT_NORMAL);
 		m_material_type = shdsrc->getShaderInfo(shader_id).material;
@@ -595,7 +597,10 @@ void WieldMeshSceneNode::setColor(video::SColor c)
 
 		if (m_buffer_info[j].needColorize(buffercolor)) {
 			buf->setDirty(scene::EBT_VERTEX);
-			setMeshBufferColor(buf, buffercolor);
+			if (m_enable_shaders)
+				setMeshBufferColor(buf, buffercolor);
+			else
+				colorizeMeshBuffer(buf, &buffercolor);
 		}
 	}
 }
@@ -618,6 +623,21 @@ void WieldMeshSceneNode::setLightColorAndAnimation(video::SColor color, float an
 	}
 }
 
+void WieldMeshSceneNode::setNodeLightColor(video::SColor color)
+{
+	if (!m_meshnode)
+		return;
+
+	if (m_enable_shaders) {
+		for (u32 i = 0; i < m_meshnode->getMaterialCount(); ++i) {
+			video::SMaterial &material = m_meshnode->getMaterial(i);
+			material.ColorParam = color;
+		}
+	} else {
+		setColor(color);
+	}
+}
+
 void WieldMeshSceneNode::render()
 {
 	// note: if this method is changed to actually do something,
@@ -633,7 +653,10 @@ void WieldMeshSceneNode::changeToMesh(scene::IMesh *mesh)
 		dummymesh->drop();  // m_meshnode grabbed it
 	} else {
 		m_meshnode->setMesh(mesh);
-		mesh->setHardwareMappingHint(scene::EHM_STATIC);
+		if (m_enable_shaders)
+			mesh->setHardwareMappingHint(scene::EHM_STATIC);
+		else
+			mesh->setHardwareMappingHint(scene::EHM_DYNAMIC);
 	}
 
 	m_meshnode->setVisible(true);

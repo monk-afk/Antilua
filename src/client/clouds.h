@@ -172,6 +172,7 @@ private:
 	bool m_camera_inside_cloud = false;
 
 	bool m_enable_3d;
+	bool m_enable_shaders = false;
 	video::SColorf m_color = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f);
 	CloudParams m_params;
 };

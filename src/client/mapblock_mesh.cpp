@@ -30,10 +30,11 @@
 */
 
 MeshMakeData::MeshMakeData(const NodeDefManager *ndef,
-		u16 side_length, MeshGrid mesh_grid) :
+		u16 side_length, MeshGrid mesh_grid, bool use_shaders) :
 	m_side_length(side_length),
 	m_mesh_grid(mesh_grid),
-	m_nodedef(ndef)
+	m_nodedef(ndef),
+	m_use_shaders(use_shaders)
 {
 	assert(m_side_length > 0);
 }
@@ -639,8 +640,10 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	m_bounding_sphere_center((data->m_side_length * 0.5f - 0.5f) * BS),
 	m_animation_force_timer(0), // force initial animation
 	m_last_crack(-1)
-{
-	ZoneScoped;
+	{
+		ZoneScoped;
+
+	m_enable_shaders = data->m_use_shaders;
 
 	for (auto &m : m_mesh)
 		m = make_irr<scene::SMesh>();
@@ -721,6 +724,26 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 				m_animation_info.emplace(std::make_pair(layer, i), AnimationInfo(p.layer));
 			}
 
+			// Extract colors for day-night animation (FFP path)
+			if (!m_enable_shaders) {
+				video::SColorf sunlight;
+				get_sunlight_color(&sunlight, 0);
+
+				std::map<u32, video::SColor> colors;
+				const u32 vertex_count = p.vertices.size();
+				for (u32 j = 0; j < vertex_count; j++) {
+					video::SColor *vc = &p.vertices[j].Color;
+					video::SColor copy = *vc;
+					if (vc->getAlpha() == 0)
+						final_color_blend(vc, copy, sunlight);
+					else
+						colors[j] = copy;
+					vc->setAlpha(255);
+				}
+				if (!colors.empty())
+					m_daynight_diffs[{layer, i}] = std::move(colors);
+			}
+
 			// Create material
 			video::SMaterial material;
 			material.FogEnable = true;
@@ -730,10 +753,14 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 			});
 
 			{
+			if (g_settings->getBool("enable_shaders")) {
 				material.MaterialType = m_shdrsrc->getShaderInfo(
 						p.layer.shader_id).material;
-				p.layer.applyMaterialOptions(material, layer);
+				p.layer.applyMaterialOptionsWithShaders(material, layer);
+			} else {
+				p.layer.applyMaterialOptions(material);
 			}
+		}
 
 			// Handle crack
 			if (p.layer.material_flags & MATERIAL_FLAG_CRACK) {
@@ -780,6 +807,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	// Check if animation is required for this mesh
 	m_has_animation =
 		!m_crack_materials.empty() ||
+		!m_daynight_diffs.empty() ||
 		!m_animation_info.empty();
 }
 
@@ -828,6 +856,24 @@ bool MapBlockMesh::animate(bool faraway, float time, int crack,
 		assert(buf);
 		video::SMaterial &material = buf->getMaterial();
 		it.second.updateTexture(material, time);
+	}
+
+	// Day-night transition (FFP path)
+	if (!m_enable_shaders && (daynight_ratio != m_last_daynight_ratio)) {
+		video::SColorf day_color;
+		get_sunlight_color(&day_color, daynight_ratio);
+
+		for (auto &daynight_diff : m_daynight_diffs) {
+			auto *mesh = m_mesh[daynight_diff.first.first].get();
+			mesh->setDirty(scene::EBT_VERTEX);
+			scene::IMeshBuffer *buf = mesh->
+				getMeshBuffer(daynight_diff.first.second);
+			video::S3DVertex *vertices = (video::S3DVertex *)buf->getVertices();
+			for (const auto &j : daynight_diff.second)
+				final_color_blend(&(vertices[j.first].Color), j.second,
+						day_color);
+		}
+		m_last_daynight_ratio = daynight_ratio;
 	}
 
 	return true;

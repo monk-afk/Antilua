@@ -104,7 +104,14 @@ struct TileLayer
 	 * @param material material to modify
 	 * @param layer index of this layer in the `TileSpec`
 	 */
-	void applyMaterialOptions(video::SMaterial &material, int layer) const;
+	void applyMaterialOptionsWithShaders(video::SMaterial &material, int layer) const;
+
+	/**
+	 * Set material parameters for fixed-function pipeline.
+	 * Sets MaterialType to a basic FFP type.
+	 * @param material material to modify
+	 */
+	void applyMaterialOptions(video::SMaterial &material) const;
 
 	/// @return is this layer uninitialized?
 	bool empty() const

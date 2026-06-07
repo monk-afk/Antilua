@@ -16,6 +16,7 @@
 #include "client/meshgen/collector.h"
 #include "client/renderingengine.h"
 #include "client.h"
+#include "settings.h"
 #include "noise.h"
 #include <SMesh.h>
 #include <IMeshBuffer.h>
@@ -65,7 +66,9 @@ MapblockMeshGenerator::MapblockMeshGenerator(MeshMakeData *input, MeshCollector 
 	data(input),
 	collector(output),
 	nodedef(data->m_nodedef),
-	blockpos_nodes(data->m_blockpos * MAP_BLOCKSIZE)
+	blockpos_nodes(data->m_blockpos * MAP_BLOCKSIZE),
+	enable_mesh_cache(g_settings->getBool("enable_mesh_cache") &&
+			!data->m_smooth_lighting)
 {
 }
 
@@ -1731,8 +1734,16 @@ void MapblockMeshGenerator::drawMeshNode()
 	}
 
 	auto *mesh_ptr = cur_node.f->visuals->mesh_ptr;
-	if (mesh_ptr) {
-		// clone and rotate mesh
+	if (!mesh_ptr) {
+		warningstream << "drawMeshNode(): missing mesh" << std::endl;
+		return;
+	}
+
+	bool private_mesh = true;
+	if (enable_mesh_cache && facedir == 0 && degrotate == 0) {
+		private_mesh = false;
+		mesh = mesh_ptr;
+	} else {
 		mesh = cloneStaticMesh(mesh_ptr);
 		bool modified = true;
 		if (facedir)
@@ -1744,9 +1755,6 @@ void MapblockMeshGenerator::drawMeshNode()
 		if (modified) {
 			recalculateBoundingBox(mesh);
 		}
-	} else {
-		warningstream << "drawMeshNode(): missing mesh" << std::endl;
-		return;
 	}
 
 	for (u32 j = 0; j < mesh->getMeshBufferCount(); j++) {
@@ -1759,18 +1767,26 @@ void MapblockMeshGenerator::drawMeshNode()
 		video::S3DVertex *vertices = (video::S3DVertex *)buf->getVertices();
 		u32 vertex_count = buf->getVertexCount();
 
-		// Mesh is always private here. So the lighting is applied to each
-		// vertex right here.
+		// Cached mesh vertices are shared — must copy before modifying
+		std::vector<video::S3DVertex> copy;
+		video::S3DVertex *write_vertices;
+		if (private_mesh) {
+			write_vertices = vertices;
+		} else {
+			copy.assign(vertices, vertices + vertex_count);
+			write_vertices = copy.data();
+		}
+
 		if (data->m_smooth_lighting) {
 			for (u32 k = 0; k < vertex_count; k++) {
-				video::S3DVertex &vertex = vertices[k];
+				video::S3DVertex &vertex = write_vertices[k];
 				vertex.Color = blendLightColor(vertex.Pos, vertex.Normal);
 				vertex.Pos += cur_node.origin;
 			}
 		} else {
 			bool is_light_source = cur_node.f->light_source != 0;
 			for (u32 k = 0; k < vertex_count; k++) {
-				video::S3DVertex &vertex = vertices[k];
+				video::S3DVertex &vertex = write_vertices[k];
 				video::SColor color = cur_node.lcolor;
 				if (!is_light_source)
 					applyFacesShading(color, vertex.Normal);
@@ -1778,10 +1794,11 @@ void MapblockMeshGenerator::drawMeshNode()
 				vertex.Pos += cur_node.origin;
 			}
 		}
-		collector->append(tile, vertices, vertex_count,
+		collector->append(tile, write_vertices, vertex_count,
 			buf->getIndices(), buf->getIndexCount());
 	}
-	mesh->drop();
+	if (private_mesh)
+		mesh->drop();
 }
 
 // also called when the drawtype is known but should have been pre-converted

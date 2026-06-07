@@ -212,6 +212,7 @@ RenderingEngine::RenderingEngine(MyEventReceiver *receiver)
 
 	// This changes the minimum allowed number of vertices in a VBO. Default is 500.
 	driver->setMinHardwareBufferVertexCount(4);
+	driver->setVBOEnabled(g_settings->getBool("enable_shaders"));
 
 	m_receiver = receiver;
 
@@ -375,18 +376,32 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 std::vector<video::E_DRIVER_TYPE> RenderingEngine::getSupportedVideoDrivers()
 {
 	// Only check these drivers. We do not support software and D3D in any capacity.
-	// ordered by preference (best first)
-	static const video::E_DRIVER_TYPE glDrivers[] = {
-		video::EDT_OPENGL3,
-		video::EDT_OPENGL,
-		video::EDT_OGLES2,
-		video::EDT_NULL,
-	};
 	std::vector<video::E_DRIVER_TYPE> drivers;
 
-	for (auto driver : glDrivers) {
-		if (IrrlichtDevice::isDriverSupported(driver))
-			drivers.push_back(driver);
+	// When shaders are disabled, prefer the legacy OpenGL driver (which has FFP support)
+	// over the GL3 driver (which is shader-only).
+	if (!g_settings->getBool("enable_shaders")) {
+		static const video::E_DRIVER_TYPE glDrivers[] = {
+			video::EDT_OPENGL,
+			video::EDT_OPENGL3,
+			video::EDT_OGLES2,
+			video::EDT_NULL,
+		};
+		for (auto driver : glDrivers) {
+			if (IrrlichtDevice::isDriverSupported(driver))
+				drivers.push_back(driver);
+		}
+	} else {
+		static const video::E_DRIVER_TYPE glDrivers[] = {
+			video::EDT_OPENGL3,
+			video::EDT_OPENGL,
+			video::EDT_OGLES2,
+			video::EDT_NULL,
+		};
+		for (auto driver : glDrivers) {
+			if (IrrlichtDevice::isDriverSupported(driver))
+				drivers.push_back(driver);
+		}
 	}
 
 	return drivers;

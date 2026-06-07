@@ -207,7 +207,7 @@ static scene::SMesh *generateNodeMesh(Client *client, MapNode n,
 
 	MeshCollector collector(v3f(0), v3f());
 	{
-		MeshMakeData mmd(ndef, 1, MeshGrid{1});
+		MeshMakeData mmd(ndef, 1, MeshGrid{1}, g_settings->getBool("enable_shaders"));
 		n.setParam1(0xff);
 		mmd.fillSingleNode(n);
 		MapblockMeshGenerator(&mmd, &collector).generate();
@@ -235,10 +235,14 @@ static scene::SMesh *generateNodeMesh(Client *client, MapNode n,
 			buf->append(&p.vertices[0], p.vertices.size(),
 					&p.indices[0], p.indices.size());
 
-			// Set up material
-			auto &mat = buf->Material;
-			p.layer.applyMaterialOptions(mat, layer);
+		// Set up material
+		auto &mat = buf->Material;
+		if (g_settings->getBool("enable_shaders")) {
+			p.layer.applyMaterialOptionsWithShaders(mat, layer);
 			getAdHocNodeShader(mat, shdsrc, "object_shader", alpha_mode, layer == 1);
+		} else {
+			p.layer.applyMaterialOptions(mat);
+		}
 
 			mesh->addMeshBuffer(buf.get());
 		}
@@ -285,6 +289,7 @@ bool GenericCAO::collideWithObjects() const
 
 void GenericCAO::initialize(const std::string &data)
 {
+	m_enable_shaders = g_settings->getBool("enable_shaders");
 	processInitData(data);
 }
 
@@ -587,19 +592,28 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 				m_prop.visual != OBJECTVISUAL_WIELDITEM &&
 				m_prop.visual != OBJECTVISUAL_ITEM)
 		{
-			IShaderSource *shader_source = m_client->getShaderSource();
-			MaterialType material_type;
+			if (m_enable_shaders) {
+				IShaderSource *shader_source = m_client->getShaderSource();
+				MaterialType material_type;
 
-			if (m_prop.shaded && m_prop.glow == 0)
-				material_type = (m_prop.use_texture_alpha) ?
-					TILE_MATERIAL_ALPHA : TILE_MATERIAL_BASIC;
-			else
-				material_type = (m_prop.use_texture_alpha) ?
-					TILE_MATERIAL_PLAIN_ALPHA : TILE_MATERIAL_PLAIN;
+				if (m_prop.shaded && m_prop.glow == 0)
+					material_type = (m_prop.use_texture_alpha) ?
+						TILE_MATERIAL_ALPHA : TILE_MATERIAL_BASIC;
+				else
+					material_type = (m_prop.use_texture_alpha) ?
+						TILE_MATERIAL_PLAIN_ALPHA : TILE_MATERIAL_PLAIN;
 
-			u32 shader_id = shader_source->getShader("object_shader", material_type, NDT_NORMAL,
-				false, hw_skin);
-			m_material_type = shader_source->getShaderInfo(shader_id).material;
+				u32 shader_id = shader_source->getShader("object_shader", material_type, NDT_NORMAL,
+					false, hw_skin);
+				m_material_type = shader_source->getShaderInfo(shader_id).material;
+			} else {
+				if (m_prop.use_texture_alpha) {
+					m_material_type = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+					m_material_type_param = 1.0f / 256.f;
+				} else {
+					m_material_type = video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF;
+				}
+			}
 		} else {
 			// Not used, so make sure it's not valid
 			m_material_type = video::EMT_INVALID;
@@ -659,7 +673,8 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 
 			// Set material
 			setMaterial(buf->getMaterial());
-			buf->getMaterial().ColorParam = c;
+			if (m_enable_shaders)
+				buf->getMaterial().ColorParam = c;
 
 			// Add to mesh
 			mesh->addMeshBuffer(buf.get());
@@ -861,7 +876,10 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 
 	// Encode light into color, adding a small boost
 	// based on the entity glow.
-	light = encode_light(light_at_pos, m_prop.glow);
+	if (m_enable_shaders)
+		light = encode_light(light_at_pos, m_prop.glow);
+	else
+		final_color_blend(&light, light_at_pos, day_night_ratio);
 
 	if (g_settings->getBool("fullbright"))
 		light = video::SColor(0xFFFFFFFF);
@@ -881,12 +899,24 @@ void GenericCAO::setNodeLight(const video::SColor &light_color)
 		return;
 	}
 
-	{
-		auto *node = getSceneNode();
-		if (!node)
+	if (!m_enable_shaders) {
+		// Skip zero-color (initial m_last_light) to avoid making entities invisible
+		if (light_color.getAlpha() == 0)
 			return;
-		setColorParam(node, light_color);
+		if (m_meshnode) {
+			setMeshColor(m_meshnode->getMesh(), light_color);
+		} else if (m_animated_meshnode) {
+			setMeshColor(m_animated_meshnode->getMesh(), light_color);
+		} else if (m_spritenode) {
+			m_spritenode->setColor(light_color);
+		}
+		return;
 	}
+
+	auto *node = getSceneNode();
+	if (!node)
+		return;
+	setColorParam(node, light_color);
 }
 
 u16 GenericCAO::getLightPosition(v3s16 *pos)

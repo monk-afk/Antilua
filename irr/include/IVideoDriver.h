@@ -140,6 +140,9 @@ public:
 	\param flag When true the feature is disabled, otherwise it is enabled. */
 	virtual void disableFeature(E_VIDEO_DRIVER_FEATURE feature, bool flag = true) = 0;
 
+	//! Enable or disable VBO usage.
+	virtual void setVBOEnabled(bool enabled) {}
+
 	//! Sets transformation matrices.
 	/** \param state Transformation type to be set, e.g. view,
 	world, or projection.

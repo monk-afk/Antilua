@@ -296,6 +296,10 @@ public:
 
 	COpenGLCacheHandler *getCacheHandler() const;
 
+	void setVBOEnabled(bool enabled) override { m_vbo_enabled = enabled; }
+
+	bool isFBOAvailable() const;
+
 private:
 	bool updateVertexHardwareBuffer(SHWBufferLink_opengl *HWBuffer);
 	bool updateIndexHardwareBuffer(SHWBufferLink_opengl *HWBuffer);
@@ -354,6 +358,7 @@ private:
 	bool ResetRenderStates;
 	bool Transformation3DChanged;
 	u8 AntiAlias;
+	bool m_vbo_enabled = true;
 
 	SMaterial Material, LastMaterial;
 

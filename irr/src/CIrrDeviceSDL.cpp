@@ -670,8 +670,8 @@ bool CIrrDeviceSDL::createWindowWithContext()
 #else // !_IRR_EMSCRIPTEN_PLATFORM_
 	switch (CreationParams.DriverType) {
 	case video::EDT_OPENGL:
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
 		break;
 	case video::EDT_OPENGL3:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -726,6 +726,12 @@ bool CIrrDeviceSDL::createWindowWithContext()
 	}
 
 	Context = SDL_GL_CreateContext(Window);
+	if (!Context && CreationParams.DriverType == video::EDT_OPENGL) {
+		// Fallback: try OpenGL 2.1 context
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		Context = SDL_GL_CreateContext(Window);
+	}
 	if (!Context) {
 		os::Printer::log("Could not create context", SDL_GetError(), ELL_WARNING);
 		SDL_DestroyWindow(Window);

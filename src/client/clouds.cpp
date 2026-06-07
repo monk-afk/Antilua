@@ -25,21 +25,25 @@ static void cloud_3d_setting_changed(const std::string &settingname, void *data)
 	((Clouds *)data)->readSettings();
 }
 
-Clouds::Clouds(scene::ISceneManager* mgr, IShaderSource *ssrc,
+	Clouds::Clouds(scene::ISceneManager* mgr, IShaderSource *ssrc,
 		s32 id,
 		u32 seed
-):
+	):
 	scene::ISceneNode(mgr->getRootSceneNode(), mgr, id),
 	m_seed(seed)
 {
 	assert(ssrc);
 
+	m_enable_shaders = g_settings->getBool("enable_shaders");
+
 	m_material.BackfaceCulling = true;
 	m_material.FogEnable = true;
 	m_material.AntiAliasing = video::EAAM_SIMPLE;
-	{
+	if (m_enable_shaders) {
 		auto sid = ssrc->getShaderRaw("cloud_shader", true);
 		m_material.MaterialType = ssrc->getShaderInfo(sid).material;
+	} else {
+		m_material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
 	}
 
 	m_params = SkyboxDefaults::getCloudDefaults();
@@ -122,7 +126,7 @@ void Clouds::updateMesh()
 
 	// Colors with primitive shading
 
-	video::SColorf c_top_f(1, 1, 1, 1);
+	video::SColorf c_top_f = m_enable_shaders ? video::SColorf(1, 1, 1, 1) : m_color;
 	video::SColorf c_side_1_f(1, 1, 1, 1);
 	video::SColorf c_side_2_f(1, 1, 1, 1);
 	video::SColorf c_bottom_f(1, 1, 1, 1);
@@ -397,7 +401,8 @@ void Clouds::render()
 	}
 
 	m_material.BackfaceCulling = is3D();
-	m_material.ColorParam = m_color.toSColor();
+	if (m_enable_shaders)
+		m_material.ColorParam = m_color.toSColor();
 
 	driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);
 	driver->setMaterial(m_material);
