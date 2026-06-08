@@ -48,9 +48,9 @@ struct MeshMakeData
 	bool m_generate_minimap = false;
 	bool m_smooth_lighting = false;
 	bool m_enable_water_reflections = false;
-	bool m_use_shaders;
-
 	const NodeDefManager *m_nodedef;
+
+	bool m_use_shaders;
 
 	MeshMakeData(const NodeDefManager *ndef, u16 side_lingth, MeshGrid mesh_grid, bool use_shaders);
 
