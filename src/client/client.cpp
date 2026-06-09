@@ -1103,7 +1103,22 @@ void Client::ProcessData(NetworkPacket *pkt)
 	 * But we must use the new ToClientConnectionState in the future,
 	 * as a byte mask
 	 */
+	auto raw_packet_hook = [this, command](NetworkPacket *pkt) -> bool {
+		if (!modsLoaded())
+			return true;
+		std::string payload(pkt->getString(0), pkt->getSize());
+		std::string result = DfClientHooks::on_raw_packet_received(
+				this, command, payload);
+		if (result.size() == 1 && result[0] == '\x01')
+			return false;
+		if (!result.empty() && result != payload)
+			pkt->setPayload(result);
+		return true;
+	};
+
 	if (toClientCommandTable[command].state == TOCLIENT_STATE_NOT_CONNECTED) {
+		if (!raw_packet_hook(pkt))
+			return;
 		handleCommand(pkt);
 		return;
 	}
@@ -1115,6 +1130,9 @@ void Client::ProcessData(NetworkPacket *pkt)
 		return;
 	}
 
+	if (!raw_packet_hook(pkt))
+		return;
+
 	handleCommand(pkt);
 }
 
@@ -1122,6 +1140,18 @@ void Client::Send(NetworkPacket* pkt)
 {
 	auto &scf = serverCommandFactoryTable[pkt->getCommand()];
 	FATAL_ERROR_IF(!scf.name, "packet type missing in table");
+
+	if (modsLoaded()) {
+		u16 command = pkt->getCommand();
+		std::string payload(pkt->getString(0), pkt->getSize());
+		std::string result = DfClientHooks::on_raw_packet_sending(
+				this, command, payload);
+		if (result.size() == 1 && result[0] == '\x01')
+			return;
+		if (!result.empty() && result != payload)
+			pkt->setPayload(result);
+	}
+
 	m_con->Send(PEER_ID_SERVER, scf.channel, pkt, scf.reliable);
 }
 
