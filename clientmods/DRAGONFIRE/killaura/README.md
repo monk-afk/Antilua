@@ -1,6 +1,6 @@
 # killaura
 
-Combat automation: auto-attack players (Killaura), auto-attack mobs (Mobaura), repulsion field (ForceField), and in-air position preservation (AirHead). Includes friend/enemy list management.
+Combat automation: auto-attack players (Killaura), auto-attack mobs (Mobaura), and in-air position preservation (AirHead). Includes friend/enemy list management.
 
 ## Player usage
 
@@ -10,7 +10,6 @@ Combat automation: auto-attack players (Killaura), auto-attack mobs (Mobaura), r
 |-------|----------|---------|-------------|
 | Killaura | Combat | `killaura` | Auto-punch nearby players (respects friend/enemy lists) |
 | Mobaura | Combat | `mobaura` | Auto-punch nearby mobs (detected by mesh name) |
-| ForceField | Combat | `forcefield` | Repulsion field effect |
 | AirHead | Player | `airhead` | Teleport back to a safe spot when flying into air |
 
 ### Settings
@@ -35,7 +34,6 @@ Combat automation: auto-attack players (Killaura), auto-attack mobs (Mobaura), r
 ```lua
 killaura = {
 	hph = 1,
-	hps = 20,
 	hit_y = -0.1,
 }
 ```
@@ -62,5 +60,4 @@ Punch an object multiple times (`hph` times) while preserving the player's origi
 |-------|---------|-------------|
 | Killaura | `killaura` | Auto-punch nearby players (respects friend/enemy lists) |
 | Mobaura | `mobaura` | Auto-punch nearby mobs (detected by mesh name) |
-| ForceField | `forcefield` | Repulsion field effect |
 | AirHead | `airhead` | Teleport back to a safe spot when flying into air |

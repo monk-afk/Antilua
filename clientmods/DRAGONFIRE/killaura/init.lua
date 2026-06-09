@@ -1,6 +1,5 @@
 killaura = {
 	hph = 1,
-	hps = 20,
 	hit_y = -0.1,
 }
 
@@ -64,14 +63,15 @@ ws.rg("Killaura", {
 	},
 })
 
-ws.rg("Mobaura", {
+	ws.rg("Mobaura", {
 	category = "Combat",
 	setting = "mobaura",
 	on_step = function(self, dtime)
 		hit_objects(tonumber(core.settings:get("mobaura.range")) or 10, function(obj)
 			local p = obj and obj:get_properties()
 			local r = obj and obj:get_rotation()
-			return p and r and r.z == 0 and (p.mesh:find("mobs_mc") or p.mesh:find("extra_mobs"))
+			local m = p and p.mesh
+			return p and r and r.z == 0 and m and (m:find("mobs_mc") or m:find("extra_mobs"))
 		end)
 	end,
 	cheat_settings = {
@@ -79,9 +79,7 @@ ws.rg("Mobaura", {
 	},
 })
 
-core.register_cheat("ForceField", { category = "Combat", setting = "forcefield" })
-
-core.register_list_command("friend", "Configure Friend List (friends dont get attacked by Killaura or Forcefield)", "friendlist")
+core.register_list_command("friend", "Configure Friend List (friends are not attacked by Killaura)", "friendlist")
 
 local function find_safespot(pos)
 	local n = core.get_node_or_nil(pos)
