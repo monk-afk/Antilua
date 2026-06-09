@@ -165,6 +165,12 @@ safe_dig_and_place (Safe digging and placing) bool false
 #	 Enable a confirmation dialog before closing.
 enable_esc_dialog (Confirmation dialog before closing) bool true
 
+#    Enable backward compatibility with Minetest/Luanti:
+#    - Check ~/.minetest/ as fallback if ~/.antilua/ doesn't exist
+#    - Read MINETEST_USER_PATH, MINETEST_GAME_PATH, MINETEST_MOD_PATH env vars
+#    - Create the minetest = core Lua global alias
+antilua_compat (Backward compatibility mode) bool false
+
 [*Keyboard and Mouse]
 
 #    Invert vertical mouse movement.
