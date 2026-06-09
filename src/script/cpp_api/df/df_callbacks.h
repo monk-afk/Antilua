@@ -89,10 +89,12 @@ public:
 			const std::string &payload);
 	bool send_raw_packet(u16 command, const std::string &payload);
 
+protected:
+	void init_raw_packet_api();
+
 private:
 	Client *m_client = nullptr;
 
 	void push_movement_table(LocalPlayer *player);
 	void push_lighting_table(const Lighting &lighting);
-	void init_raw_packet_api();
 };
