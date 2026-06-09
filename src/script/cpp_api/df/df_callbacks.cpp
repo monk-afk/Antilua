@@ -683,7 +683,7 @@ void DfScriptApi::init_raw_packet_api()
 		lua_pushinteger(L, i);
 		lua_setfield(L, -2, name);
 	}
-	lua_setfield(L, -3, "TOCLIENT");
+	lua_setfield(L, -2, "TOCLIENT");
 
 	// core.TOSERVER table
 	lua_newtable(L);
