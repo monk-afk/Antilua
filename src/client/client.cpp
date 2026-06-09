@@ -1106,7 +1106,10 @@ void Client::ProcessData(NetworkPacket *pkt)
 	auto raw_packet_hook = [this, command](NetworkPacket *pkt) -> bool {
 		if (!modsLoaded())
 			return true;
-		std::string payload(pkt->getString(0), pkt->getSize());
+		u32 size = pkt->getSize();
+		std::string payload;
+		if (size > 0)
+			payload.assign(pkt->getString(0), size);
 		std::string result = DfClientHooks::on_raw_packet_received(
 				this, command, payload);
 		if (result.size() == 1 && result[0] == '\x01')
@@ -1143,7 +1146,10 @@ void Client::Send(NetworkPacket* pkt)
 
 	if (modsLoaded()) {
 		u16 command = pkt->getCommand();
-		std::string payload(pkt->getString(0), pkt->getSize());
+		u32 size = pkt->getSize();
+		std::string payload;
+		if (size > 0)
+			payload.assign(pkt->getString(0), size);
 		std::string result = DfClientHooks::on_raw_packet_sending(
 				this, command, payload);
 		if (result.size() == 1 && result[0] == '\x01')
