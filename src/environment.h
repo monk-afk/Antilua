@@ -120,7 +120,6 @@ protected:
 	 */
 
 	IGameDef *m_gamedef;
-	bool m_cache_enable_shaders;
 
 private:
 	std::mutex m_time_lock;

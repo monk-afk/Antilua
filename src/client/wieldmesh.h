@@ -150,7 +150,6 @@ private:
 	// Material types used as fallback
 	video::E_MATERIAL_TYPE m_material_type;
 
-	bool m_enable_shaders;
 	bool m_anisotropic_filter;
 	bool m_bilinear_filter;
 	bool m_trilinear_filter;

@@ -57,12 +57,6 @@ void setMeshColor(scene::IMesh *mesh, video::SColor color);
 
 /*!
  * Overwrites the color of a mesh buffer.
- * The color is darkened based on the normal vector of the vertices.
- */
-void colorizeMeshBuffer(scene::IMeshBuffer *buf, const video::SColor *buffercolor);
-
-/*!
- * Overwrites the color of a mesh buffer.
  * The color is darkened based on the normal vector of the vertices
  * and the given directional light source + ambient light.
  */

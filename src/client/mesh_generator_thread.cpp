@@ -11,6 +11,7 @@
 #include "map.h"
 #include "util/directiontables.h"
 #include "porting.h"
+#include "client/ffp/ffp_settings.h"
 
 /*
 	QueuedMeshUpdate
@@ -91,7 +92,6 @@ MeshUpdateQueue::MeshUpdateQueue(Client *client):
 {
 	m_cache_smooth_lighting = g_settings->getBool("smooth_lighting");
 	m_cache_enable_water_reflections = g_settings->getBool("enable_water_reflections");
-	m_cache_enable_shaders = g_settings->getBool("enable_shaders");
 }
 
 MeshUpdateQueue::~MeshUpdateQueue()
@@ -226,7 +226,7 @@ void MeshUpdateQueue::fillDataFromMapBlocks(QueuedMeshUpdate *q)
 	auto mesh_grid = m_client->getMeshGrid();
 	MeshMakeData *data = new MeshMakeData(m_client->ndef(),
 			MAP_BLOCKSIZE * mesh_grid.cell_size, mesh_grid,
-			m_cache_enable_shaders);
+			ffp_isEnabled());
 	q->data = data;
 
 	data->fillBlockDataBegin(q->p);

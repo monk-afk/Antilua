@@ -12,6 +12,7 @@
 #include "client/texturepaths.h"
 #include "client/keys.h"
 #include "client/joystick_controller.h"
+#include "client/ffp/ffp_light.h"
 #include "client/mapblock_mesh.h"
 #include "client/sound.h"
 #include "clientmap.h"
@@ -155,8 +156,7 @@ public:
 	void onSetUniforms(video::IMaterialRendererServices *services) override
 	{
 		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
-		video::SColorf sunlight;
-		get_sunlight_color(&sunlight, daynight_ratio);
+		video::SColorf sunlight = ffp_getSunlightColor(daynight_ratio);
 		m_day_light.set(sunlight, services);
 
 		u32 animation_timer = m_client->getEnv().getFrameTime() % 1000000;
@@ -3097,7 +3097,7 @@ PointedThing Game::updatePointedThing(
 
 		u32 daynight_ratio = client->getEnv().getDayNightRatio();
 		video::SColor c;
-		final_color_blend(&c, light_level, daynight_ratio);
+		ffp_blendDayNight(&c, light_level, daynight_ratio);
 
 		// Modify final color a bit with time
 		u32 timer = client->getEnv().getFrameTime() % 5000;

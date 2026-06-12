@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2010-2013 celeron55, Perttu Ahola <celeron55@gmail.com>
 
+#include "client/ffp/ffp_settings.h"
 #include "client/renderingengine.h"
 #include "client/shader.h"
 #include "clouds.h"
@@ -34,12 +35,10 @@ static void cloud_3d_setting_changed(const std::string &settingname, void *data)
 {
 	assert(ssrc);
 
-	m_enable_shaders = g_settings->getBool("enable_shaders");
-
 	m_material.BackfaceCulling = true;
 	m_material.FogEnable = true;
 	m_material.AntiAliasing = video::EAAM_SIMPLE;
-	if (m_enable_shaders) {
+	if (ffp_isEnabled()) {
 		auto sid = ssrc->getShaderRaw("cloud_shader", true);
 		m_material.MaterialType = ssrc->getShaderInfo(sid).material;
 	} else {
@@ -126,7 +125,7 @@ void Clouds::updateMesh()
 
 	// Colors with primitive shading
 
-	video::SColorf c_top_f = m_enable_shaders ? video::SColorf(1, 1, 1, 1) : m_color;
+	video::SColorf c_top_f = ffp_isEnabled() ? video::SColorf(1, 1, 1, 1) : m_color;
 	video::SColorf c_side_1_f(1, 1, 1, 1);
 	video::SColorf c_side_2_f(1, 1, 1, 1);
 	video::SColorf c_bottom_f(1, 1, 1, 1);
@@ -401,7 +400,7 @@ void Clouds::render()
 	}
 
 	m_material.BackfaceCulling = is3D();
-	if (m_enable_shaders)
+	if (ffp_isEnabled())
 		m_material.ColorParam = m_color.toSColor();
 
 	driver->setTransform(video::ETS_WORLD, AbsoluteTransformation);

@@ -10,6 +10,8 @@
 #include "client/renderingengine.h"
 #include "client/texturesource.h"
 #include "noise.h" // easeCurve
+#include "ffp/ffp_settings.h"
+#include "client/ffp/ffp_light.h"
 #include "player.h" // CameraMode
 #include "profiler.h"
 #include "settings.h"
@@ -59,12 +61,10 @@ Sky::Sky(s32 id, RenderingEngine *rendering_engine, ITextureSource *tsrc, IShade
 	m_moon_params = SkyboxDefaults::getMoonDefaults();
 	m_star_params = SkyboxDefaults::getStarDefaults();
 
-	m_enable_shaders = g_settings->getBool("enable_shaders");
-
 	// Create materials
 
 	m_materials[0] = baseMaterial();
-	if (m_enable_shaders) {
+	if (ffp_isEnabled()) {
 		m_materials[0].MaterialType =
 				ssrc->getShaderInfo(ssrc->getShaderRaw("stars_shader", true)).material;
 	} else {
@@ -666,10 +666,10 @@ void Sky::draw_stars(video::IVideoDriver * driver, float wicked_time_of_day)
 	color.a *= alpha;
 	if (color.a <= 0.0f) // Stars are only drawn when not fully transparent
 		return;
-	if (m_enable_shaders) {
+	if (ffp_isEnabled()) {
 		m_materials[0].ColorParam = color.toSColor();
 	} else {
-		setMeshBufferColor(m_stars.get(), color.toSColor());
+		ffp_colorizeMeshBuffer(m_stars.get(), color.toSColor());
 	}
 
 	auto day_rotation = core::matrix4().setRotationAxisRadians(2.0f * M_PI * (wicked_time_of_day - 0.25f), v3f(0.0f, 0.0f, 1.0f));
@@ -873,8 +873,6 @@ void Sky::updateStars()
 		indices.push_back(i * 4 + 3);
 		indices.push_back(i * 4 + 0);
 	}
-	if (m_enable_shaders)
-		m_stars->setHardwareMappingHint(scene::EHM_STATIC);
 }
 
 void Sky::setSkyColors(const SkyColor &sky_color)

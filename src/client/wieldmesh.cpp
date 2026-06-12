@@ -20,6 +20,9 @@
 #include <map>
 #include <IMeshManipulator.h>
 #include "client/renderingengine.h"
+#include "client/ffp/ffp_settings.h"
+#include "client/ffp/ffp_material.h"
+#include "client/ffp/ffp_light.h"
 #include <SMesh.h>
 #include <IMeshBuffer.h>
 #include <CMeshBuffer.h>
@@ -231,7 +234,6 @@ WieldMeshSceneNode::WieldMeshSceneNode(scene::ISceneManager *mgr, s32 id):
 	scene::ISceneNode(mgr->getRootSceneNode(), mgr, id),
 	m_material_type(video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF)
 {
-	m_enable_shaders = g_settings->getBool("enable_shaders");
 	m_anisotropic_filter = g_settings->getBool("anisotropic_filter");
 	m_bilinear_filter = g_settings->getBool("bilinear_filter");
 	m_trilinear_filter = g_settings->getBool("trilinear_filter");
@@ -376,7 +378,10 @@ static scene::SMesh *createGenericNodeMesh(Client *client, MapNode n,
 					&p.indices[0], p.indices.size());
 
 			// note: material type is left unset, overridden later
-			p.layer.applyMaterialOptions(buf->Material, layer);
+			if (ffp_isEnabled())
+				p.layer.applyMaterialOptions(buf->Material, layer);
+			else
+				ffp_applyTileMaterial(buf->Material, p.layer);
 
 			mesh->addMeshBuffer(buf.get());
 			buffer_info->emplace_back(layer, p.layer);
@@ -435,7 +440,7 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 	const ContentFeatures &f = ndef->get(def.name);
 	const NodeVisuals &v = *(f.visuals);
 
-	if (m_enable_shaders) {
+	if (ffp_isEnabled()) {
 		// Initialize material type used by setExtruded
 		u32 shader_id = shdsrc->getShader("object_shader", TILE_MATERIAL_BASIC, NDT_NORMAL);
 		m_material_type = shdsrc->getShaderInfo(shader_id).material;
@@ -597,10 +602,10 @@ void WieldMeshSceneNode::setColor(video::SColor c)
 
 		if (m_buffer_info[j].needColorize(buffercolor)) {
 			buf->setDirty(scene::EBT_VERTEX);
-			if (m_enable_shaders)
+			if (ffp_isEnabled())
 				setMeshBufferColor(buf, buffercolor);
 			else
-				colorizeMeshBuffer(buf, &buffercolor);
+				ffp_colorizeMeshBuffer(buf, buffercolor);
 		}
 	}
 }
@@ -628,7 +633,7 @@ void WieldMeshSceneNode::setNodeLightColor(video::SColor color)
 	if (!m_meshnode)
 		return;
 
-	if (m_enable_shaders) {
+	if (ffp_isEnabled()) {
 		for (u32 i = 0; i < m_meshnode->getMaterialCount(); ++i) {
 			video::SMaterial &material = m_meshnode->getMaterial(i);
 			material.ColorParam = color;
@@ -653,7 +658,7 @@ void WieldMeshSceneNode::changeToMesh(scene::IMesh *mesh)
 		dummymesh->drop();  // m_meshnode grabbed it
 	} else {
 		m_meshnode->setMesh(mesh);
-		if (m_enable_shaders)
+		if (ffp_isEnabled())
 			mesh->setHardwareMappingHint(scene::EHM_STATIC);
 		else
 			mesh->setHardwareMappingHint(scene::EHM_DYNAMIC);

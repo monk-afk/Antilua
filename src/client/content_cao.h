@@ -101,8 +101,6 @@ private:
 
 	// Material
 	video::E_MATERIAL_TYPE m_material_type = video::EMT_INVALID;
-	f32 m_material_type_param = 0.0f;
-	bool m_enable_shaders = false;
 
 	// Movement
 	v3f m_position = v3f(0.0f, 10.0f * BS, 0);
@@ -138,6 +136,7 @@ private:
 	v3f m_attachment_rotation;
 	bool m_attached_to_local = false;
 	bool m_force_visible = false;
+	bool m_enable_shaders = true;
 
 	ItemGroupList m_armor_groups;
 	float m_reset_textures_timer = -1.0f;

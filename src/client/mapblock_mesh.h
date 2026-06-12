@@ -12,6 +12,7 @@
 #include "util/numeric.h"
 #include "client/tile.h"
 #include "voxel.h"
+#include "client/ffp/ffp_mapblock.h"
 #include <map>
 
 namespace video {
@@ -296,12 +297,8 @@ private:
 	// Indicates which materials to apply the crack to
 	std::vector<MeshIndex> m_crack_materials;
 
-	// Whether to use shaders
-	bool m_enable_shaders;
-	// Last day-night ratio passed to animate(), used for FFP path
-	u32 m_last_daynight_ratio = (u32)-1;
-	// Per-vertex color diffs for day/night animation (FFP path)
-	std::map<std::pair<u8, u32>, std::map<u32, video::SColor>> m_daynight_diffs;
+	// FFP day/night animation
+	std::unique_ptr<FFPMapBlockDayNightAnimator> m_daynight_animator;
 
 	// Animation info: texture animation
 	// Maps mesh and mesh buffer indices to TileSpecs
@@ -337,31 +334,7 @@ u16 getFaceLight(MapNode n, MapNode n2, const NodeDefManager *ndef);
 u16 getSmoothLightSolid(const v3s16 &p, const v3s16 &face_dir, const v3s16 &corner, MeshMakeData *data);
 u16 getSmoothLightTransparent(const v3s16 &p, const v3s16 &corner, MeshMakeData *data);
 
-/*!
- * Returns the sunlight's color from the current
- * day-night ratio.
- */
-void get_sunlight_color(video::SColorf *sunlight, u32 daynight_ratio);
 
-/*!
- * Gives the final  SColor shown on screen.
- *
- * \param result output color
- * \param light first 8 bits are day light, second 8 bits are
- * night light
- */
-void final_color_blend(video::SColor *result,
-		u16 light, u32 daynight_ratio);
-
-/*!
- * Gives the final  SColor shown on screen.
- *
- * \param result output color
- * \param data the half-baked vertex color
- * \param dayLight color of the sunlight
- */
-void final_color_blend(video::SColor *result,
-		const video::SColor &data, const video::SColorf &dayLight);
 
 // Retrieves the TileSpec of a face of a node
 // Adds MATERIAL_FLAG_CRACK if the node is cracked

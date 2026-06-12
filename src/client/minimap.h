@@ -173,7 +173,6 @@ private:
 	size_t m_current_mode_index;
 	u16 m_surface_mode_scan_height;
 	f32 m_angle;
-	bool m_enable_shaders;
 
 	std::mutex m_mutex;
 	std::vector<std::unique_ptr<MinimapMarker>> m_markers;

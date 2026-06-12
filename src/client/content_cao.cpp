@@ -12,6 +12,9 @@
 #include "settings.h"
 #include "client/renderingengine.h"
 #include "client/sound.h"
+#include "client/ffp/ffp_settings.h"
+#include "client/ffp/ffp_material.h"
+#include "client/ffp/ffp_light.h"
 #include "client/texturesource.h"
 #include "client/mapblock_mesh.h"
 #include "client/content_mapblock.h"
@@ -237,11 +240,11 @@ static scene::SMesh *generateNodeMesh(Client *client, MapNode n,
 
 		// Set up material
 		auto &mat = buf->Material;
-		if (g_settings->getBool("enable_shaders")) {
-			p.layer.applyMaterialOptionsWithShaders(mat, layer);
+		if (ffp_isEnabled()) {
+			p.layer.applyMaterialOptions(mat, layer);
 			getAdHocNodeShader(mat, shdsrc, "object_shader", alpha_mode, layer == 1);
 		} else {
-			p.layer.applyMaterialOptions(mat);
+			ffp_applyTileMaterial(mat, p.layer);
 		}
 
 			mesh->addMeshBuffer(buf.get());
@@ -289,7 +292,6 @@ bool GenericCAO::collideWithObjects() const
 
 void GenericCAO::initialize(const std::string &data)
 {
-	m_enable_shaders = g_settings->getBool("enable_shaders");
 	processInitData(data);
 }
 
@@ -591,7 +593,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 				m_prop.visual != OBJECTVISUAL_WIELDITEM &&
 				m_prop.visual != OBJECTVISUAL_ITEM)
 		{
-			if (m_enable_shaders) {
+			if (ffp_isEnabled()) {
 				IShaderSource *shader_source = m_client->getShaderSource();
 				MaterialType material_type;
 
@@ -606,12 +608,8 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 					false, hw_skin);
 				m_material_type = shader_source->getShaderInfo(shader_id).material;
 			} else {
-				if (m_prop.use_texture_alpha) {
-					m_material_type = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-					m_material_type_param = 1.0f / 256.f;
-				} else {
-					m_material_type = video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF;
-				}
+				auto ffp_mat = ffp_getEntityMaterial(m_prop.use_texture_alpha);
+				m_material_type = ffp_mat.type;
 			}
 		} else {
 			// Not used, so make sure it's not valid
@@ -672,7 +670,7 @@ void GenericCAO::addToScene(ITextureSource *tsrc, scene::ISceneManager *smgr)
 
 			// Set material
 			setMaterial(buf->getMaterial());
-			if (m_enable_shaders)
+			if (ffp_isEnabled())
 				buf->getMaterial().ColorParam = c;
 
 			// Add to mesh
@@ -875,10 +873,10 @@ void GenericCAO::updateLight(u32 day_night_ratio)
 
 	// Encode light into color, adding a small boost
 	// based on the entity glow.
-	if (m_enable_shaders)
+	if (ffp_isEnabled())
 		light = encode_light(light_at_pos, m_prop.glow);
 	else
-		final_color_blend(&light, light_at_pos, day_night_ratio);
+		ffp_blendDayNight(&light, light_at_pos, day_night_ratio);
 
 	if (g_settings->getBool("fullbright"))
 		light = video::SColor(0xFFFFFFFF);
@@ -898,14 +896,14 @@ void GenericCAO::setNodeLight(const video::SColor &light_color)
 		return;
 	}
 
-	if (!m_enable_shaders) {
+	if (!ffp_isEnabled()) {
 		// Skip zero-color (initial m_last_light) to avoid making entities invisible
 		if (light_color.getAlpha() == 0)
 			return;
 		if (m_meshnode) {
-			setMeshColor(m_meshnode->getMesh(), light_color);
+			ffp_setMeshColor(m_meshnode->getMesh(), light_color);
 		} else if (m_animated_meshnode) {
-			setMeshColor(m_animated_meshnode->getMesh(), light_color);
+			ffp_setMeshColor(m_animated_meshnode->getMesh(), light_color);
 		} else if (m_spritenode) {
 			m_spritenode->setColor(light_color);
 		}

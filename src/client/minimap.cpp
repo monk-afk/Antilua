@@ -12,6 +12,7 @@
 #include "shader.h"
 #include "client/renderingengine.h"
 #include "client/texturesource.h"
+#include "ffp/ffp_settings.h"
 #include "gettext.h"
 #include "voxel.h"
 
@@ -172,7 +173,6 @@ Minimap::Minimap(Client *client)
 	m_current_mode_index = 0;
 
 	// Initialize static settings
-	m_enable_shaders = g_settings->getBool("enable_shaders");
 	m_surface_mode_scan_height =
 		g_settings->getBool("minimap_double_scan_height") ? 256 : 128;
 
@@ -605,7 +605,7 @@ void Minimap::drawMinimap(core::rect<s32> rect)
 	material.TextureLayers[1].Texture = data->heightmap_texture;
 
 	if (data->mode.type == MINIMAP_TYPE_SURFACE) {
-		if (m_enable_shaders) {
+		if (ffp_isEnabled()) {
 			auto sid = m_shdrsrc->getShaderRaw("minimap_shader", true);
 			material.MaterialType = m_shdrsrc->getShaderInfo(sid).material;
 		} else {

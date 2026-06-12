@@ -296,7 +296,7 @@ public:
 
 	COpenGLCacheHandler *getCacheHandler() const;
 
-	void setVBOEnabled(bool enabled) override { m_vbo_enabled = enabled; }
+	void setVBOEnabled(bool enabled) override;
 
 	bool isFBOAvailable() const;
 
@@ -315,6 +315,10 @@ private:
 
 	//! get native wrap mode value
 	GLint getTextureWrapMode(const u8 clamp);
+
+	//! Replace standard material renderers with FFP-compatible versions.
+	//! Called by setVBOEnabled(false).
+	void installFFPMaterialRenderers();
 
 	//! sets the needed renderstates
 	void setRenderStates3DMode();

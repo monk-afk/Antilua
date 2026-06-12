@@ -49,6 +49,11 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/al_hooks.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pipe_lua.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/session.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ffp/ffp_settings.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ffp/ffp_material.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ffp/ffp_light.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ffp/ffp_render.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ffp/ffp_mapblock.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/content_cao.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/content_cso.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/content_mapblock.cpp

@@ -21,6 +21,7 @@
 #include "mesh.h"
 #include "client/renderingengine.h"
 #include "client/minimap.h"
+#include "client/ffp/ffp_settings.h"
 #include "client/texturesource.h"
 #include "gui/touchcontrols.h"
 #include "util/enriched_string.h"
@@ -86,9 +87,8 @@ Hud::Hud(Client *client, LocalPlayer *player,
 
 	// Initialize m_selection_material
 	IShaderSource *shdrsrc = client->getShaderSource();
-	bool enable_shaders = g_settings->getBool("enable_shaders");
 	if (m_mode == HIGHLIGHT_HALO) {
-		if (enable_shaders) {
+		if (ffp_isEnabled()) {
 			auto shader_id = shdrsrc->getShaderRaw("selection_shader", true);
 			m_selection_material.MaterialType = shdrsrc->getShaderInfo(shader_id).material;
 		} else {
@@ -109,7 +109,7 @@ Hud::Hud(Client *client, LocalPlayer *player,
 	}
 
 	// Initialize m_block_bounds_material
-	if (enable_shaders) {
+	if (ffp_isEnabled()) {
 		m_block_bounds_material.MaterialType = video::EMT_SOLID;
 	} else {
 		m_block_bounds_material.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;

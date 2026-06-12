@@ -18,6 +18,7 @@
 
 #include "COpenGLCacheHandler.h"
 #include "COpenGLMaterialRenderer.h"
+#include "COpenGLMaterialRendererFFP.h"
 #include "COpenGLSLMaterialRenderer.h"
 
 #include "COpenGLCoreTexture.h"
@@ -424,6 +425,38 @@ bool COpenGLDriver::isFBOAvailable() const
 {
 	return FeatureAvailable[IRR_EXT_framebuffer_object] ||
 		FeatureAvailable[IRR_ARB_framebuffer_object];
+}
+
+void COpenGLDriver::setVBOEnabled(bool enabled)
+{
+	m_vbo_enabled = enabled;
+	if (!enabled)
+		installFFPMaterialRenderers();
+}
+
+void COpenGLDriver::installFFPMaterialRenderers()
+{
+	// Replace standard material renderers with FFP-compatible versions
+	// at the predefined EMT material type indices.
+
+	auto replaceRenderer = [this](u32 idx, IMaterialRenderer *ffpRenderer) {
+		if (idx >= MaterialRenderers.size())
+			return;
+		ffpRenderer->grab();
+		if (MaterialRenderers[idx].Renderer)
+			MaterialRenderers[idx].Renderer->drop();
+		MaterialRenderers[idx].Renderer = ffpRenderer;
+	};
+
+	replaceRenderer(EMT_SOLID, new FFP_COpenGLMaterialRenderer_SOLID(this));
+	replaceRenderer(EMT_TRANSPARENT_ALPHA_CHANNEL,
+			new FFP_COpenGLMaterialRenderer_TRANSPARENT_ALPHA_CHANNEL(this));
+	replaceRenderer(EMT_TRANSPARENT_ALPHA_CHANNEL_REF,
+			new FFP_COpenGLMaterialRenderer_TRANSPARENT_ALPHA_CHANNEL_REF(this));
+	replaceRenderer(EMT_TRANSPARENT_VERTEX_ALPHA,
+			new FFP_COpenGLMaterialRenderer_TRANSPARENT_VERTEX_ALPHA(this));
+	replaceRenderer(EMT_ONETEXTURE_BLEND,
+			new FFP_COpenGLMaterialRenderer_ONETEXTURE_BLEND(this));
 }
 
 void COpenGLDriver::deleteHardwareBuffer(SHWBufferLink *_link)

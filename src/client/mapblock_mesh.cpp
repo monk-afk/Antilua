@@ -16,6 +16,8 @@
 #include "util/tracy_wrapper.h"
 #include "client/meshgen/collector.h"
 #include "client/renderingengine.h"
+#include "client/ffp/ffp_settings.h"
+#include "client/ffp/ffp_material.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -282,51 +284,6 @@ u16 getSmoothLightTransparent(const v3s16 &p, const v3s16 &corner, MeshMakeData 
 		v3s16(corner.X,corner.Y,corner.Z)
 	}};
 	return getSmoothLightCombined(p, dirs, data);
-}
-
-void get_sunlight_color(video::SColorf *sunlight, u32 daynight_ratio)
-{
-	f32 rg = daynight_ratio / 1000.0f - 0.04f;
-	f32 b = (0.98f * daynight_ratio) / 1000.0f + 0.078f;
-	sunlight->r = rg;
-	sunlight->g = rg;
-	sunlight->b = b;
-}
-
-void final_color_blend(video::SColor *result,
-		u16 light, u32 daynight_ratio)
-{
-	video::SColorf dayLight;
-	get_sunlight_color(&dayLight, daynight_ratio);
-	final_color_blend(result,
-		encode_light(light, 0), dayLight);
-}
-
-void final_color_blend(video::SColor *result,
-		const video::SColor &data, const video::SColorf &dayLight)
-{
-	static const video::SColorf artificialColor(1.04f, 1.04f, 1.04f);
-
-	video::SColorf c(data);
-	f32 n = 1 - c.a;
-
-	f32 r = c.r * (c.a * dayLight.r + n * artificialColor.r) * 2.0f;
-	f32 g = c.g * (c.a * dayLight.g + n * artificialColor.g) * 2.0f;
-	f32 b = c.b * (c.a * dayLight.b + n * artificialColor.b) * 2.0f;
-
-	// Emphase blue a bit in darker places
-	// Each entry of this array represents a range of 8 blue levels
-	static const u8 emphase_blue_when_dark[32] = {
-		1, 4, 6, 6, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	};
-
-	b += emphase_blue_when_dark[core::clamp((s32) ((r + g + b) / 3 * 255),
-		0, 255) / 8] / 255.0f;
-
-	result->setRed(core::clamp((s32) (r * 255.0f), 0, 255));
-	result->setGreen(core::clamp((s32) (g * 255.0f), 0, 255));
-	result->setBlue(core::clamp((s32) (b * 255.0f), 0, 255));
 }
 
 /*
@@ -643,7 +600,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	{
 		ZoneScoped;
 
-	m_enable_shaders = data->m_use_shaders;
+	m_daynight_animator = std::make_unique<FFPMapBlockDayNightAnimator>();
 
 	for (auto &m : m_mesh)
 		m = make_irr<scene::SMesh>();
@@ -725,24 +682,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 			}
 
 			// Extract colors for day-night animation (FFP path)
-			if (!m_enable_shaders) {
-				video::SColorf sunlight;
-				get_sunlight_color(&sunlight, 0);
-
-				std::map<u32, video::SColor> colors;
-				const u32 vertex_count = p.vertices.size();
-				for (u32 j = 0; j < vertex_count; j++) {
-					video::SColor *vc = &p.vertices[j].Color;
-					video::SColor copy = *vc;
-					if (vc->getAlpha() == 0)
-						final_color_blend(vc, copy, sunlight);
-					else
-						colors[j] = copy;
-					vc->setAlpha(255);
-				}
-				if (!colors.empty())
-					m_daynight_diffs[{layer, i}] = std::move(colors);
-			}
+			m_daynight_animator->addLayer(p.vertices, layer, i);
 
 			// Create material
 			video::SMaterial material;
@@ -753,12 +693,12 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 			});
 
 			{
-			if (g_settings->getBool("enable_shaders")) {
+			if (ffp_isEnabled()) {
 				material.MaterialType = m_shdrsrc->getShaderInfo(
 						p.layer.shader_id).material;
-				p.layer.applyMaterialOptionsWithShaders(material, layer);
+				p.layer.applyMaterialOptions(material, layer);
 			} else {
-				p.layer.applyMaterialOptions(material);
+				ffp_applyTileMaterial(material, p.layer);
 			}
 		}
 
@@ -807,7 +747,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	// Check if animation is required for this mesh
 	m_has_animation =
 		!m_crack_materials.empty() ||
-		!m_daynight_diffs.empty() ||
+		m_daynight_animator->hasAnimation() ||
 		!m_animation_info.empty();
 }
 
@@ -859,22 +799,7 @@ bool MapBlockMesh::animate(bool faraway, float time, int crack,
 	}
 
 	// Day-night transition (FFP path)
-	if (!m_enable_shaders && (daynight_ratio != m_last_daynight_ratio)) {
-		video::SColorf day_color;
-		get_sunlight_color(&day_color, daynight_ratio);
-
-		for (auto &daynight_diff : m_daynight_diffs) {
-			auto *mesh = m_mesh[daynight_diff.first.first].get();
-			mesh->setDirty(scene::EBT_VERTEX);
-			scene::IMeshBuffer *buf = mesh->
-				getMeshBuffer(daynight_diff.first.second);
-			video::S3DVertex *vertices = (video::S3DVertex *)buf->getVertices();
-			for (const auto &j : daynight_diff.second)
-				final_color_blend(&(vertices[j.first].Color), j.second,
-						day_color);
-		}
-		m_last_daynight_ratio = daynight_ratio;
-	}
+	m_daynight_animator->animate(m_mesh, daynight_ratio);
 
 	return true;
 }
