@@ -600,7 +600,8 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	{
 		ZoneScoped;
 
-	m_daynight_animator = std::make_unique<FFPMapBlockDayNightAnimator>();
+	if (!ffp_isEnabled())
+		m_daynight_animator = std::make_unique<FFPMapBlockDayNightAnimator>();
 
 	for (auto &m : m_mesh)
 		m = make_irr<scene::SMesh>();
@@ -682,7 +683,8 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 			}
 
 			// Extract colors for day-night animation (FFP path)
-			m_daynight_animator->addLayer(p.vertices, layer, i);
+			if (m_daynight_animator)
+				m_daynight_animator->addLayer(p.vertices, layer, i);
 
 			// Create material
 			video::SMaterial material;
@@ -747,7 +749,7 @@ MapBlockMesh::MapBlockMesh(Client *client, MeshMakeData *data):
 	// Check if animation is required for this mesh
 	m_has_animation =
 		!m_crack_materials.empty() ||
-		m_daynight_animator->hasAnimation() ||
+		(m_daynight_animator && m_daynight_animator->hasAnimation()) ||
 		!m_animation_info.empty();
 }
 
@@ -799,7 +801,8 @@ bool MapBlockMesh::animate(bool faraway, float time, int crack,
 	}
 
 	// Day-night transition (FFP path)
-	m_daynight_animator->animate(m_mesh, daynight_ratio);
+	if (m_daynight_animator)
+		m_daynight_animator->animate(m_mesh, daynight_ratio);
 
 	return true;
 }
