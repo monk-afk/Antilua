@@ -233,10 +233,12 @@ void set_default_settings()
 	settings->setDefault("keymap_sneak", "SYSTEM_SCANCODE_225"); // KEY_LSHIFT
 	settings->setDefault("keymap_dig", "MOUSE_BUTTON_1");
 	settings->setDefault("keymap_place", "MOUSE_BUTTON_3");
-	settings->setDefault("keymap_drop", "SYSTEM_SCANCODE_20"); // KEY_KEY_Q
+	settings->setDefault("keymap_drop", ""); // was KEY_KEY_Q, now unbound (Q → camera roll)
 	settings->setDefault("keymap_zoom", "SYSTEM_SCANCODE_29"); // KEY_KEY_Z
 	settings->setDefault("keymap_inventory", "SYSTEM_SCANCODE_12"); // KEY_KEY_I
-	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_8"); // KEY_KEY_E
+	settings->setDefault("keymap_aux1", "SYSTEM_SCANCODE_224"); // KEY_LCONTROL (was KEY_KEY_E)
+	settings->setDefault("keymap_camera_roll_left", "SYSTEM_SCANCODE_20"); // KEY_KEY_Q
+	settings->setDefault("keymap_camera_roll_right", "SYSTEM_SCANCODE_8"); // KEY_KEY_E
 	settings->setDefault("keymap_chat", "SYSTEM_SCANCODE_23"); // KEY_KEY_T
 	settings->setDefault("keymap_cmd", "SYSTEM_SCANCODE_56"); // /
 	settings->setDefault("keymap_cmd_local", "SYSTEM_SCANCODE_55"); // .
@@ -272,6 +274,8 @@ void set_default_settings()
 	settings->setDefault("keymap_camera_yaw_right", "");
 	settings->setDefault("keymap_camera_pitch_up", "");
 	settings->setDefault("keymap_camera_pitch_down", "");
+	settings->setDefault("keymap_camera_roll_left", "SYSTEM_SCANCODE_20"); // KEY_KEY_Q
+	settings->setDefault("keymap_camera_roll_right", "SYSTEM_SCANCODE_8"); // KEY_KEY_E
 	settings->setDefault("keymap_screenshot", "SYSTEM_SCANCODE_69"); // KEY_F12
 	settings->setDefault("keymap_fullscreen", "SYSTEM_SCANCODE_68"); // KEY_F11
 	settings->setDefault("keymap_increase_viewing_range_min", "SYSTEM_SCANCODE_46"); // +
@@ -371,6 +375,8 @@ void set_default_settings()
 	settings->setDefault("camera_smoothing", "0.0");
 	settings->setDefault("cinematic_camera_smoothing", "0.05");
 	settings->setDefault("view_bobbing_amount", "1.0");
+	settings->setDefault("camera_roll_speed", "90.0");
+	settings->setDefault("camera_roll_max", "180.0");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("soft_clouds", "false");
 	settings->setDefault("cloud_radius", "12");
