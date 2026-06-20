@@ -2214,7 +2214,10 @@ void Game::updateCameraOrientation(CameraOrientation *cam, float dtime)
 	}
 
 	// Keyboard look
-	cam->camera_pitch = rangelim(cam->camera_pitch, -90, 90);
+	if (g_settings->getBool("pitch_wraparound"))
+		cam->camera_pitch = wrapDegrees_180(cam->camera_pitch);
+	else
+		cam->camera_pitch = rangelim(cam->camera_pitch, -90, 90);
 }
 
 
