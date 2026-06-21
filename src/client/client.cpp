@@ -1452,6 +1452,9 @@ void Client::sendInventoryAction(InventoryAction *a)
 	NetworkPacket pkt(TOSERVER_INVENTORY_ACTION, s.size());
 	pkt.putRawString(s.c_str(),s.size());
 
+	if (modsLoaded())
+		AlClientHooks::on_inventory_action(this);
+
 	Send(&pkt);
 }
 
