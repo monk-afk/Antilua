@@ -1411,6 +1411,9 @@ void Client::sendNodemetaFields(v3s16 p, const std::string &formname,
 		pkt.putLongString(value);
 	}
 
+	if (modsLoaded())
+		AlClientHooks::on_sending_nodemeta_fields(this, formname, fields);
+
 	Send(&pkt);
 }
 
@@ -1430,6 +1433,9 @@ void Client::sendInventoryFields(const std::string &formname,
 		pkt << name;
 		pkt.putLongString(value);
 	}
+
+	if (modsLoaded())
+		AlClientHooks::on_sending_inventory_fields(this, formname, fields);
 
 	Send(&pkt);
 }
