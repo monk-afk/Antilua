@@ -761,6 +761,11 @@ int ModApiClient::l_decode_image(lua_State *L)
 	}
 
 	auto *device = RenderingEngine::get_raw_device();
+	if (!device) {
+		lua_pushnil(L);
+		lua_pushstring(L, "No rendering device");
+		return 2;
+	}
 	auto *fs = device->getFileSystem();
 	auto *vd = device->getVideoDriver();
 
