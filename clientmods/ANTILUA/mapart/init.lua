@@ -4,14 +4,15 @@ local modpath = core.get_modpath(core.get_current_modname())
 local palette = {}
 
 local function load_palette()
-	local ok, json = pcall(core.read_file, modpath .. "/colors.json")
-	if not ok or not json then
-		ws.notify("mapart: colors.json not found", ws.NOTIFY_ERROR)
+	local json_path = modpath .. "/colors.json"
+	local json = core.read_file(json_path)
+	if not json then
+		ws.notify("mapart: colors.json not found at " .. json_path, ws.NOTIFY_ERROR)
 		return false
 	end
 	local ok2, colors = pcall(core.parse_json, json)
 	if not ok2 or not colors then
-		ws.notify("mapart: failed to parse colors.json", ws.NOTIFY_ERROR)
+		ws.notify("mapart: failed to parse colors.json: " .. tostring(colors), ws.NOTIFY_ERROR)
 		return false
 	end
 
