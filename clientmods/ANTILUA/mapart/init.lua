@@ -449,4 +449,9 @@ core.register_chatcommand("mapart", {
 })
 
 -- Initialize palette (synchronous, mod load time)
-pcall(load_palette)
+local ok = pcall(load_palette)
+if ok then
+	core.debug("mapart: loaded " .. #palette .. " palette entries")
+else
+	core.debug("mapart: palette loading failed")
+end
