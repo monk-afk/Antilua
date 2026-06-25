@@ -193,7 +193,7 @@ local function save_and_load_mts(schem, name)
 	end
 
 	local schem_dir = core.settings:get("mapart_output_dir")
-		or (os.getenv("HOME") or "") .. "/antilua_mapart"
+		or "/tmp/antilua_mapart"
 
 	local filepath = schem_dir .. "/" .. name:gsub("%.png$", "") .. ".mts"
 	local ok, err = core.write_file(filepath, mts_data)
@@ -211,7 +211,7 @@ end
 -- State for formspec
 local state = {
 	png_list = {},
-	png_dir = (os.getenv("HOME") or "") .. "/antilua_mapart",
+	png_dir = core.settings:get("mapart.png_dir") or "/tmp/antilua_mapart",
 	selected = 0,
 	preview = "",
 	out_w = 128,
