@@ -171,15 +171,20 @@ local function image_to_schem(width, height, pixel_data, opts)
 		for x = 0, out_w - 1 do
 			local r, g, b, a = get_pixel(x, z)
 
-			if a < 128 then
-				goto skip
-			end
-
 			if use_dither then
 				local idx = z * out_w + x
 				r = math.max(0, math.min(255, r + errors[idx * 3 + 1]))
 				g = math.max(0, math.min(255, g + errors[idx * 3 + 2]))
 				b = math.max(0, math.min(255, b + errors[idx * 3 + 3]))
+			end
+
+			if a < 128 then
+				table.insert(schem.data, {
+					name = "air",
+					prob = 0,
+					param2 = 0,
+				})
+				goto skip
 			end
 
 			local best = find_closest(r, g, b, use_gamma)
@@ -196,7 +201,12 @@ local function image_to_schem(width, height, pixel_data, opts)
 					name = best.name,
 					prob = 254,
 					param2 = best.param2,
-					x = x, y = 0, z = z,
+				})
+			else
+				table.insert(schem.data, {
+					name = "air",
+					prob = 0,
+					param2 = 0,
 				})
 			end
 			::skip::
