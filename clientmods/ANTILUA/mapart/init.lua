@@ -419,12 +419,19 @@ core.register_chatcommand("mapart", {
 			return false, "Failed to decode image"
 		end
 
+		local first_alpha = string.byte(img.data, 4) or -1
+		core.display_chat_message("[MAPART DEBUG] img=" .. img.width .. "x" .. img.height ..
+			" datalen=" .. (#img.data or 0) .. " palette=" .. #palette ..
+			" first_alpha=" .. first_alpha)
+
 		local schem = image_to_schem(img.width, img.height, img.data, {
 			width = out_w,
 			height = out_h,
 			dither = do_dither,
 			gamma = do_gamma,
 		})
+
+		core.display_chat_message("[MAPART DEBUG] schem.nodes=" .. #schem.data)
 
 		if #schem.data == 0 then
 			return false, "No non-transparent pixels found"
@@ -440,7 +447,5 @@ core.register_chatcommand("mapart", {
 	end,
 })
 
--- Initialize palette
-core.after(0, function()
-	load_palette()
-end)
+-- Initialize palette (synchronous, mod load time)
+pcall(load_palette)
