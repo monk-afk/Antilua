@@ -1,4 +1,10 @@
-local modpath = core.get_modpath(core.get_current_modname())
+local modname = core.get_current_modname()
+local modpath
+if type(core.get_modpath_real) == "function" then
+	modpath = core.get_modpath_real(modname)
+else
+	modpath = core.get_modpath(modname)
+end
 
 -- Build flat palette from colors.json
 local palette = {}
@@ -7,19 +13,32 @@ local function load_palette()
 	local json_path = modpath .. "/colors.json"
 	local json = core.read_file(json_path)
 	if not json then
-		ws.notify("mapart: colors.json not found at " .. json_path, ws.NOTIFY_ERROR)
+		local err = "mapart: colors.json not found at " .. json_path
+		core.log(err)
+		ws.notify(err, ws.NOTIFY_ERROR)
 		return false
 	end
 	local ok2, colors = pcall(core.parse_json, json)
 	if not ok2 or not colors then
-		ws.notify("mapart: failed to parse colors.json: " .. tostring(colors), ws.NOTIFY_ERROR)
+		local err = "mapart: failed to parse colors.json: " .. tostring(colors)
+		core.log(err)
+		ws.notify(err, ws.NOTIFY_ERROR)
+		return false
+	end
+
+	if type(colors) ~= "table" then
+		local err = "mapart: colors.json parsed to " .. type(colors)
+		core.log(err)
+		ws.notify(err, ws.NOTIFY_ERROR)
 		return false
 	end
 
 	palette = {}
 	for node_name, color_data in pairs(colors) do
+		if type(color_data) ~= "table" then
+			-- skip unexpected format
 		-- Single color: [r,g,b] or [r,g,b,a,...]
-		if type(color_data[1]) == "number" then
+		elseif type(color_data[1]) == "number" then
 			table.insert(palette, {
 				name = node_name,
 				param2 = 0,
@@ -40,6 +59,7 @@ local function load_palette()
 			end
 		end
 	end
+	core.log("mapart: loaded " .. #palette .. " palette entries")
 
 	-- Apply nlist filtering
 	if nlist and nlist.get then
@@ -420,19 +440,12 @@ core.register_chatcommand("mapart", {
 			return false, "Failed to decode image"
 		end
 
-		local first_alpha = string.byte(img.data, 4) or -1
-		core.display_chat_message("[MAPART DEBUG] img=" .. img.width .. "x" .. img.height ..
-			" datalen=" .. (#img.data or 0) .. " palette=" .. #palette ..
-			" first_alpha=" .. first_alpha)
-
 		local schem = image_to_schem(img.width, img.height, img.data, {
 			width = out_w,
 			height = out_h,
 			dither = do_dither,
 			gamma = do_gamma,
 		})
-
-		core.display_chat_message("[MAPART DEBUG] schem.nodes=" .. #schem.data)
 
 		if #schem.data == 0 then
 			return false, "No non-transparent pixels found"
@@ -449,9 +462,4 @@ core.register_chatcommand("mapart", {
 })
 
 -- Initialize palette (synchronous, mod load time)
-local ok = pcall(load_palette)
-if ok then
-	core.debug("mapart: loaded " .. #palette .. " palette entries")
-else
-	core.debug("mapart: palette loading failed")
-end
+pcall(load_palette)
