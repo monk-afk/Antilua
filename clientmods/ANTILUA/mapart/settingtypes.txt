@@ -1,0 +1,2 @@
+mapart.png_dir (Image directory path) string /tmp/antilua_mapart
+mapart_output_dir (MTS output directory) string /tmp/antilua_mapart
