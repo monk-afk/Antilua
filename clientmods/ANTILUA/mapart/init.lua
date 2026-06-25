@@ -279,7 +279,6 @@ local state = {
 	dither = false,
 	gamma = false,
 	invonly = false,
-	grid = false,
 	grid_new = core.settings:get_bool("mapart_grid_new", false),
 	status = "",
 }
@@ -317,8 +316,7 @@ get_mapart_tab = function(fs, tab)
 		"checkbox[5,5.5;mapart_dither;Dither;" .. (s.dither and "true" or "false") .. "]" ..
 		"checkbox[5,6.2;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]" ..
 		"checkbox[5,6.9;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]" ..
-		"checkbox[5,7.6;mapart_grid;Map grid align;" .. (s.grid and "true" or "false") .. "]" ..
-		"checkbox[5,8.3;mapart_grid_new;New grid;" .. (s.grid_new and "true" or "false") .. "]"
+		"checkbox[5,7.6;mapart_grid_new;New grid;" .. (s.grid_new and "true" or "false") .. "]"
 
 	-- Convert button + status
 	fs = fs .. "button[5,7;3,0.8;mapart_convert;Convert]"
@@ -415,7 +413,6 @@ handle_mapart_events = function(fields)
 		local do_dither = fields.mapart_dither == "true"
 		local do_gamma = fields.mapart_gamma == "true"
 		local do_invonly = fields.mapart_invonly == "true"
-		local do_grid = fields.mapart_grid == "true"
 		local do_grid_new = fields.mapart_grid_new == "true"
 
 		if do_grid_new ~= s.grid_new then
@@ -427,7 +424,6 @@ handle_mapart_events = function(fields)
 		s.dither = do_dither
 		s.gamma = do_gamma
 		s.invonly = do_invonly
-		s.grid = do_grid
 		s.grid_new = do_grid_new
 
 		local pal = palette
@@ -453,7 +449,7 @@ handle_mapart_events = function(fields)
 		end
 
 		local grid_pos
-		if do_grid and core.localplayer then
+		if core.localplayer then
 			local p = core.localplayer:get_pos()
 			if do_grid_new then
 				grid_pos = {
@@ -482,11 +478,11 @@ handle_mapart_events = function(fields)
 end
 
 core.register_chatcommand("mapart", {
-	params = "<path> [width] [height] [--dither] [--gamma] [--invonly] [--grid] [--newgrid] [--oldgrid]",
+	params = "<path> [width] [height] [--dither] [--gamma] [--invonly]",
 	description = "Convert a PNG image to an MTS schematic using map colors",
 	func = function(param)
 		if param == "" then
-			return false, "Usage: /mapart <path> [width] [height] [--dither] [--gamma] [--invonly] [--grid] [--newgrid] [--oldgrid]"
+			return false, "Usage: /mapart <path> [width] [height] [--dither] [--gamma] [--invonly]"
 		end
 
 		local parts = {}
@@ -500,7 +496,6 @@ core.register_chatcommand("mapart", {
 		local do_dither = false
 		local do_gamma = false
 		local do_invonly = false
-		local do_grid = false
 		local do_grid_new = core.settings:get_bool("mapart_grid_new", false)
 
 		for i = 2, #parts do
@@ -510,14 +505,6 @@ core.register_chatcommand("mapart", {
 				do_gamma = true
 			elseif parts[i] == "--invonly" then
 				do_invonly = true
-			elseif parts[i] == "--grid" then
-				do_grid = true
-			elseif parts[i] == "--newgrid" then
-				do_grid = true
-				do_grid_new = true
-			elseif parts[i] == "--oldgrid" then
-				do_grid = true
-				do_grid_new = false
 			elseif out_w == 128 and not parts[i]:match("^%-%-") then
 				out_w = tonumber(parts[i]) or 128
 			elseif not parts[i]:match("^%-%-") then
@@ -556,7 +543,7 @@ core.register_chatcommand("mapart", {
 		end
 
 		local grid_pos
-		if do_grid and core.localplayer then
+		if core.localplayer then
 			local p = core.localplayer:get_pos()
 			if do_grid_new then
 				grid_pos = {
