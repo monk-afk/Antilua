@@ -1,5 +1,9 @@
 local modpath = core.get_modpath(core.get_current_modname())
 
+-- Forward declarations for optional mapart integration
+handle_mapart_events = nil
+get_mapart_tab = nil
+
 local schembuilder = {pos1={x=nil,y=nil,z=nil}, pos2={x=nil,y=nil,z=nil}}
 local place_nodes = {}
 local supply_chests = {}
@@ -432,7 +436,11 @@ local function show_browser_form(tab)
 				"button[8.2,9;1.6,0.8;bx_load_dl;Load]"
 		end
 	elseif tab == 3 then
-		fs = get_mapart_tab(fs, tab)
+		if type(get_mapart_tab) == "function" then
+			fs = get_mapart_tab(fs, tab)
+		else
+			fs = fs .. "label[0,1;Mapart mod not loaded. Please wait...]"
+		end
 	end
 
 	core.show_formspec("schembuilder:browser", fs)
@@ -641,7 +649,7 @@ core.register_on_formspec_input(function(formname, fields)
 		return
 	end
 
-	if handle_mapart_events(fields) then
+	if type(handle_mapart_events) == "function" and handle_mapart_events(fields) then
 		show_browser_form(3)
 		return
 	end
