@@ -218,6 +218,92 @@ local function image_to_schem(width, height, pixel_data, opts)
 	return schem
 end
 
+-- Convert decoded image data to a vertical wall MTS schematic
+local function image_to_wall_schem(width, height, pixel_data, opts)
+	opts = opts or {}
+	local out_w = opts.width or width
+	local out_h = opts.height or height
+	local use_dither = opts.dither or false
+	local use_gamma = opts.gamma or false
+	local pal = opts.palette or palette
+	local dir = opts.direction or "x"
+
+	local function get_pixel(px, py)
+		local sx = math.floor(px * width / out_w)
+		local sy = math.floor(py * height / out_h)
+		sx = math.min(sx, width - 1)
+		sy = math.min(sy, height - 1)
+		local idx = (sy * width + sx) * 4 + 1
+		return string.byte(pixel_data, idx),
+			string.byte(pixel_data, idx + 1),
+			string.byte(pixel_data, idx + 2),
+			string.byte(pixel_data, idx + 3)
+	end
+
+	local errors = {}
+	if use_dither then
+		for i = 1, out_w * out_h * 3 do
+			errors[i] = 0
+		end
+	end
+
+	local schem
+	if dir == "x" then
+		schem = { size = { x = out_w, y = out_h, z = 1 }, data = {} }
+		for y = 0, out_h - 1 do
+			for x = 0, out_w - 1 do
+				local r, g, b, a = get_pixel(x, y)
+				if use_dither then
+					local idx = y * out_w + x
+					r = math.max(0, math.min(255, r + errors[idx * 3 + 1]))
+					g = math.max(0, math.min(255, g + errors[idx * 3 + 2]))
+					b = math.max(0, math.min(255, b + errors[idx * 3 + 3]))
+				end
+				if a < 128 then
+					table.insert(schem.data, { name = "air", prob = 0, param2 = 0 })
+					goto skip_x
+				end
+				local best = find_closest(r, g, b, use_gamma, pal)
+				if best then
+					local dr = r - best.r; local dg = g - best.g; local db = b - best.b
+					if use_dither then floyd_steinberg(errors, out_w, out_h, x, y, dr, dg, db) end
+					table.insert(schem.data, { name = best.name, prob = 254, param2 = best.param2 })
+				else
+					table.insert(schem.data, { name = "air", prob = 0, param2 = 0 })
+				end
+				::skip_x::
+			end
+		end
+	else
+		schem = { size = { x = 1, y = out_h, z = out_w }, data = {} }
+		for z = 0, out_w - 1 do
+			for y = 0, out_h - 1 do
+				local r, g, b, a = get_pixel(z, y)
+				if use_dither then
+					local idx = y * out_w + z
+					r = math.max(0, math.min(255, r + errors[idx * 3 + 1]))
+					g = math.max(0, math.min(255, g + errors[idx * 3 + 2]))
+					b = math.max(0, math.min(255, b + errors[idx * 3 + 3]))
+				end
+				if a < 128 then
+					table.insert(schem.data, { name = "air", prob = 0, param2 = 0 })
+					goto skip_z
+				end
+				local best = find_closest(r, g, b, use_gamma, pal)
+				if best then
+					local dr = r - best.r; local dg = g - best.g; local db = b - best.b
+					if use_dither then floyd_steinberg(errors, out_w, out_h, z, y, dr, dg, db) end
+					table.insert(schem.data, { name = best.name, prob = 254, param2 = best.param2 })
+				else
+					table.insert(schem.data, { name = "air", prob = 0, param2 = 0 })
+				end
+				::skip_z::
+			end
+		end
+	end
+	return schem
+end
+
 -- Save MTS to schematics dir and load into schembuilder
 local function save_and_load_mts(schem, name, use_pos)
 	local mts_data = core.serialize_schematic(schem, "mts")
@@ -280,6 +366,7 @@ local state = {
 	gamma = false,
 	invonly = false,
 	grid_new = core.settings:get_bool("mapart_grid_new", false),
+	mode = "floor",
 	status = "",
 }
 
@@ -309,19 +396,26 @@ get_mapart_tab = function(fs, tab)
 	end
 
 	-- Options
+	local mode_idx = ({ floor = 1, wall_x = 2, wall_z = 3 })[s.mode] or 1
 	fs = fs .. "field[5,4.8;1.5,0.6;mapart_w;;" .. s.out_w .. "]" ..
 		"label[5,4.3;W]" ..
 		"field[6.7,4.8;1.5,0.6;mapart_h;;" .. s.out_h .. "]" ..
 		"label[6.7,4.3;H]" ..
-		"checkbox[5,5.5;mapart_dither;Dither;" .. (s.dither and "true" or "false") .. "]" ..
-		"checkbox[5,6.2;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]" ..
-		"checkbox[5,6.9;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]" ..
-		"checkbox[5,7.6;mapart_grid_new;New grid;" .. (s.grid_new and "true" or "false") .. "]"
+		"dropdown[5,5.5;3.5;mapart_mode;Floor,Wall (X),Wall (Z);" .. mode_idx .. "]" ..
+		"checkbox[5,6.2;mapart_dither;Dither;" .. (s.dither and "true" or "false") .. "]" ..
+		"checkbox[5,6.9;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]" ..
+		"checkbox[5,7.6;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]"
+
+	if s.mode == "floor" then
+		fs = fs .. "checkbox[5,8.3;mapart_grid_new;New grid;" .. (s.grid_new and "true" or "false") .. "]"
+	end
 
 	-- Convert button + status
-	fs = fs .. "button[5,7;3,0.8;mapart_convert;Convert]"
+	local btn_y = s.mode == "floor" and 9.0 or 8.3
+	fs = fs .. "button[5," .. btn_y .. ";3,0.8;mapart_convert;Convert]"
+	local st_y = btn_y + 0.8
 	if s.status ~= "" then
-		fs = fs .. "label[5,7.8;" .. core.formspec_escape(s.status) .. "]"
+		fs = fs .. "label[5," .. st_y .. ";" .. core.formspec_escape(s.status) .. "]"
 	end
 
 	return fs
@@ -408,23 +502,20 @@ handle_mapart_events = function(fields)
 			return true
 		end
 
-		local out_w = tonumber(fields.mapart_w) or 128
-		local out_h = tonumber(fields.mapart_h) or 128
+		local out_w = tonumber(fields.mapart_w) or img.width
+		local out_h = tonumber(fields.mapart_h) or img.height
 		local do_dither = fields.mapart_dither == "true"
 		local do_gamma = fields.mapart_gamma == "true"
 		local do_invonly = fields.mapart_invonly == "true"
-		local do_grid_new = fields.mapart_grid_new == "true"
-
-		if do_grid_new ~= s.grid_new then
-			core.settings:set_bool("mapart_grid_new", do_grid_new)
-		end
+		local mode_names = { "floor", "wall_x", "wall_z" }
+		local mode = mode_names[tonumber(fields.mapart_mode) or 1]
 
 		s.out_w = out_w
 		s.out_h = out_h
 		s.dither = do_dither
 		s.gamma = do_gamma
 		s.invonly = do_invonly
-		s.grid_new = do_grid_new
+		s.mode = mode
 
 		local pal = palette
 		if do_invonly then
@@ -435,41 +526,72 @@ handle_mapart_events = function(fields)
 			end
 		end
 
-		local schem = image_to_schem(img.width, img.height, img.data, {
-			width = out_w,
-			height = out_h,
-			dither = do_dither,
-			gamma = do_gamma,
-			palette = pal,
-		})
-
-		if #schem.data == 0 then
-			s.status = "No non-transparent pixels found"
-			return true
-		end
-
-		local grid_pos
-		if core.localplayer then
-			local p = core.localplayer:get_pos()
-			if do_grid_new then
-				grid_pos = {
-					x = math.floor((p.x - 63) / 128) * 128 + 64,
-					y = math.floor(p.y),
-					z = math.floor((p.z + 63) / 128) * 128 - 64,
-				}
-			else
-				grid_pos = {
-					x = math.floor(p.x / 128) * 128,
-					y = math.floor(p.y),
-					z = math.floor(p.z / 128) * 128,
-				}
+		local schem
+		if mode == "floor" then
+			local do_grid_new = fields.mapart_grid_new == "true"
+			if do_grid_new ~= s.grid_new then
+				core.settings:set_bool("mapart_grid_new", do_grid_new)
 			end
-		end
-		local ok3, result = save_and_load_mts(schem, name, grid_pos)
-		if ok3 then
-			s.status = "Saved: " .. result
+			s.grid_new = do_grid_new
+
+			schem = image_to_schem(img.width, img.height, img.data, {
+				width = out_w,
+				height = out_h,
+				dither = do_dither,
+				gamma = do_gamma,
+				palette = pal,
+			})
+
+			if #schem.data == 0 then
+				s.status = "No non-transparent pixels found"
+				return true
+			end
+
+			local grid_pos
+			if core.localplayer then
+				local p = core.localplayer:get_pos()
+				if do_grid_new then
+					grid_pos = {
+						x = math.floor((p.x - 63) / 128) * 128 + 64,
+						y = math.floor(p.y),
+						z = math.floor((p.z + 63) / 128) * 128 - 64,
+					}
+				else
+					grid_pos = {
+						x = math.floor(p.x / 128) * 128,
+						y = math.floor(p.y),
+						z = math.floor(p.z / 128) * 128,
+					}
+				end
+			end
+			local ok3, result = save_and_load_mts(schem, name, grid_pos)
+			if ok3 then
+				s.status = "Saved: " .. result
+			else
+				s.status = "Error: " .. (result or "unknown")
+			end
 		else
-			s.status = "Error: " .. (result or "unknown")
+			local wall_dir = mode == "wall_x" and "x" or "z"
+			schem = image_to_wall_schem(img.width, img.height, img.data, {
+				width = out_w,
+				height = out_h,
+				dither = do_dither,
+				gamma = do_gamma,
+				palette = pal,
+				direction = wall_dir,
+			})
+
+			if #schem.data == 0 then
+				s.status = "No non-transparent pixels found"
+				return true
+			end
+
+			local ok3, result = save_and_load_mts(schem, name)
+			if ok3 then
+				s.status = "Saved: " .. result
+			else
+				s.status = "Error: " .. (result or "unknown")
+			end
 		end
 		return true
 	end
@@ -564,6 +686,88 @@ core.register_chatcommand("mapart", {
 		local ok3, result = save_and_load_mts(schem, name .. ".png", grid_pos)
 		if ok3 then
 			return true, "Mapart saved: " .. result .. " (" .. #schem.data .. " nodes)"
+		else
+			return false, "Error: " .. (result or "unknown")
+		end
+	end,
+})
+
+core.register_chatcommand("mapart_wall", {
+	params = "<path> [width] [height] [--direction x|z] [--dither] [--gamma] [--invonly]",
+	description = "Convert a PNG image to a vertical wall MTS schematic",
+	func = function(param)
+		if param == "" then
+			return false, "Usage: /mapart_wall <path> [width] [height] [--direction x|z] [--dither] [--gamma] [--invonly]"
+		end
+
+		local parts = {}
+		for p in param:gmatch("%S+") do
+			table.insert(parts, p)
+		end
+
+		local filepath = parts[1]
+		local dir = "x"
+		local do_dither = false
+		local do_gamma = false
+		local do_invonly = false
+		local args = {}
+
+		for i = 2, #parts do
+			if parts[i] == "--dither" then
+				do_dither = true
+			elseif parts[i] == "--gamma" then
+				do_gamma = true
+			elseif parts[i] == "--invonly" then
+				do_invonly = true
+			elseif parts[i] == "--direction" then
+				dir = parts[i + 1] or "x"
+				i = i + 1
+			elseif not parts[i]:match("^%-%-") then
+				table.insert(args, parts[i])
+			end
+		end
+
+		local out_w = tonumber(args[1])
+		local out_h = tonumber(args[2])
+
+		local ok, data = pcall(core.read_file, filepath)
+		if not ok or not data then
+			return false, "File not found: " .. filepath
+		end
+
+		local ok2, img = pcall(core.decode_image, data)
+		if not ok2 or not img then
+			return false, "Failed to decode image"
+		end
+
+		out_w = out_w or img.width
+		out_h = out_h or img.height
+
+		local pal = palette
+		if do_invonly then
+			pal = build_inv_palette()
+			if not pal or #pal == 0 then
+				return false, "No usable blocks in inventory"
+			end
+		end
+
+		local schem = image_to_wall_schem(img.width, img.height, img.data, {
+			width = out_w,
+			height = out_h,
+			dither = do_dither,
+			gamma = do_gamma,
+			palette = pal,
+			direction = dir,
+		})
+
+		if #schem.data == 0 then
+			return false, "No non-transparent pixels found"
+		end
+
+		local name = filepath:match("([^/]+)%.png$") or "mapart_wall_output"
+		local ok3, result = save_and_load_mts(schem, name .. ".png")
+		if ok3 then
+			return true, "Wall saved: " .. result .. " (" .. #schem.data .. " nodes)"
 		else
 			return false, "Error: " .. (result or "unknown")
 		end
