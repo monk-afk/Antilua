@@ -250,7 +250,7 @@ local function image_to_wall_schem(width, height, pixel_data, opts)
 	local schem
 	if dir == "x" then
 		schem = { size = { x = out_w, y = out_h, z = 1 }, data = {} }
-		for y = 0, out_h - 1 do
+		for y = out_h - 1, 0, -1 do
 			for x = 0, out_w - 1 do
 				local r, g, b, a = get_pixel(x, y)
 				if use_dither then
@@ -277,7 +277,7 @@ local function image_to_wall_schem(width, height, pixel_data, opts)
 	else
 		schem = { size = { x = 1, y = out_h, z = out_w }, data = {} }
 		for z = 0, out_w - 1 do
-			for y = 0, out_h - 1 do
+			for y = out_h - 1, 0, -1 do
 				local r, g, b, a = get_pixel(z, y)
 				if use_dither then
 					local idx = y * out_w + z
