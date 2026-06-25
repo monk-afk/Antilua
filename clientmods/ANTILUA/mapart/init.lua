@@ -169,7 +169,7 @@ local function image_to_schem(width, height, pixel_data, opts)
 		data = {}
 	}
 
-	for z = 0, out_h - 1 do
+	for z = out_h - 1, 0, -1 do
 		for x = 0, out_w - 1 do
 			local r, g, b, a = get_pixel(x, z)
 
