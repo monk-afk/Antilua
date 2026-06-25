@@ -219,7 +219,7 @@ local function image_to_schem(width, height, pixel_data, opts)
 end
 
 -- Save MTS to schematics dir and load into schembuilder
-local function save_and_load_mts(schem, name)
+local function save_and_load_mts(schem, name, use_pos)
 	local mts_data = core.serialize_schematic(schem, "mts")
 	if not mts_data then
 		return false, "Failed to serialize schematic"
@@ -236,7 +236,7 @@ local function save_and_load_mts(schem, name)
 
 	-- Try to load into schembuilder if available
 	if type(schembuilder_load_mts) == "function" then
-		schembuilder_load_mts(filepath, name:gsub("%.png$", "") .. ".mts")
+		schembuilder_load_mts(filepath, name:gsub("%.png$", "") .. ".mts", use_pos)
 	end
 	return true, filepath
 end
@@ -279,6 +279,7 @@ local state = {
 	dither = false,
 	gamma = false,
 	invonly = false,
+	grid = false,
 	status = "",
 }
 
@@ -314,7 +315,8 @@ get_mapart_tab = function(fs, tab)
 		"label[6.7,4.3;H]" ..
 		"checkbox[5,5.5;mapart_dither;Dither;" .. (s.dither and "true" or "false") .. "]" ..
 		"checkbox[5,6.2;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]" ..
-		"checkbox[5,6.9;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]"
+		"checkbox[5,6.9;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]" ..
+		"checkbox[5,7.6;mapart_grid;Map grid align;" .. (s.grid and "true" or "false") .. "]"
 
 	-- Convert button + status
 	fs = fs .. "button[5,7;3,0.8;mapart_convert;Convert]"
@@ -411,12 +413,14 @@ handle_mapart_events = function(fields)
 		local do_dither = fields.mapart_dither == "true"
 		local do_gamma = fields.mapart_gamma == "true"
 		local do_invonly = fields.mapart_invonly == "true"
+		local do_grid = fields.mapart_grid == "true"
 
 		s.out_w = out_w
 		s.out_h = out_h
 		s.dither = do_dither
 		s.gamma = do_gamma
 		s.invonly = do_invonly
+		s.grid = do_grid
 
 		local pal = palette
 		if do_invonly then
@@ -440,7 +444,16 @@ handle_mapart_events = function(fields)
 			return true
 		end
 
-		local ok3, result = save_and_load_mts(schem, name)
+		local grid_pos
+		if do_grid and core.localplayer then
+			local p = core.localplayer:get_pos()
+			grid_pos = {
+				x = math.floor(p.x / 128) * 128,
+				y = math.floor(p.y),
+				z = math.floor(p.z / 128) * 128,
+			}
+		end
+		local ok3, result = save_and_load_mts(schem, name, grid_pos)
 		if ok3 then
 			s.status = "Saved: " .. result
 		else
@@ -453,11 +466,11 @@ handle_mapart_events = function(fields)
 end
 
 core.register_chatcommand("mapart", {
-	params = "<path> [width] [height] [--dither] [--gamma] [--invonly]",
+	params = "<path> [width] [height] [--dither] [--gamma] [--invonly] [--grid]",
 	description = "Convert a PNG image to an MTS schematic using map colors",
 	func = function(param)
 		if param == "" then
-			return false, "Usage: /mapart <path> [width] [height] [--dither] [--gamma]"
+			return false, "Usage: /mapart <path> [width] [height] [--dither] [--gamma] [--invonly] [--grid]"
 		end
 
 		local parts = {}
@@ -471,6 +484,7 @@ core.register_chatcommand("mapart", {
 		local do_dither = false
 		local do_gamma = false
 		local do_invonly = false
+		local do_grid = false
 
 		for i = 2, #parts do
 			if parts[i] == "--dither" then
@@ -479,6 +493,8 @@ core.register_chatcommand("mapart", {
 				do_gamma = true
 			elseif parts[i] == "--invonly" then
 				do_invonly = true
+			elseif parts[i] == "--grid" then
+				do_grid = true
 			elseif out_w == 128 and not parts[i]:match("^%-%-") then
 				out_w = tonumber(parts[i]) or 128
 			elseif not parts[i]:match("^%-%-") then
@@ -516,8 +532,18 @@ core.register_chatcommand("mapart", {
 			return false, "No non-transparent pixels found"
 		end
 
+		local grid_pos
+		if do_grid and core.localplayer then
+			local p = core.localplayer:get_pos()
+			grid_pos = {
+				x = math.floor(p.x / 128) * 128,
+				y = math.floor(p.y),
+				z = math.floor(p.z / 128) * 128,
+			}
+		end
+
 		local name = filepath:match("([^/]+)%.png$") or "mapart_output"
-		local ok3, result = save_and_load_mts(schem, name .. ".png")
+		local ok3, result = save_and_load_mts(schem, name .. ".png", grid_pos)
 		if ok3 then
 			return true, "Mapart saved: " .. result .. " (" .. #schem.data .. " nodes)"
 		else
