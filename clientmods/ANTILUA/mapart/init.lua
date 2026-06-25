@@ -93,9 +93,10 @@ local function srgb_to_linear(c)
 end
 
 -- Find closest palette entry (RGB Euclidean distance)
-local function find_closest(r, g, b, use_gamma)
+local function find_closest(r, g, b, use_gamma, pal_override)
+	local pal = pal_override or palette
 	local best_idx, best_dist = nil, math.huge
-	for i, entry in ipairs(palette) do
+	for i, entry in ipairs(pal) do
 		local dr, dg, db
 		if use_gamma then
 			dr = srgb_to_linear(r) - srgb_to_linear(entry.r)
@@ -113,7 +114,7 @@ local function find_closest(r, g, b, use_gamma)
 		end
 		if dist == 0 then break end
 	end
-	return palette[best_idx]
+	return pal[best_idx]
 end
 
 -- Floyd-Steinberg dithering
@@ -140,6 +141,7 @@ local function image_to_schem(width, height, pixel_data, opts)
 	local out_h = opts.height or 128
 	local use_dither = opts.dither or false
 	local use_gamma = opts.gamma or false
+	local pal = opts.palette or palette
 
 	-- Nearest-neighbor resize
 	local function get_pixel(px, py)
@@ -187,7 +189,7 @@ local function image_to_schem(width, height, pixel_data, opts)
 				goto skip
 			end
 
-			local best = find_closest(r, g, b, use_gamma)
+			local best = find_closest(r, g, b, use_gamma, pal)
 			if best then
 				local dr = (r or 0) - best.r
 				local dg = (g or 0) - best.g
@@ -239,6 +241,33 @@ local function save_and_load_mts(schem, name)
 	return true, filepath
 end
 
+-- Build a filtered palette with only nodes in the player's inventory
+local function build_inv_palette()
+	local inv = core.get_inventory("current_player")
+	if not inv then return nil end
+	local types = {}
+	for _, list_name in ipairs({"main", "craft"}) do
+		local list = inv[list_name]
+		if list then
+			for _, stack in ipairs(list) do
+				if not stack:is_empty() then
+					local name = stack:get_name()
+					if name then
+						types[name] = true
+					end
+				end
+			end
+		end
+	end
+	local filtered = {}
+	for _, entry in ipairs(palette) do
+		if types[entry.name] then
+			table.insert(filtered, entry)
+		end
+	end
+	return filtered
+end
+
 -- State for formspec
 local state = {
 	png_list = {},
@@ -249,6 +278,7 @@ local state = {
 	out_h = 128,
 	dither = false,
 	gamma = false,
+	invonly = false,
 	status = "",
 }
 
@@ -283,7 +313,8 @@ get_mapart_tab = function(fs, tab)
 		"field[6.7,4.8;1.5,0.6;mapart_h;;" .. s.out_h .. "]" ..
 		"label[6.7,4.3;H]" ..
 		"checkbox[5,5.5;mapart_dither;Dither;" .. (s.dither and "true" or "false") .. "]" ..
-		"checkbox[5,6.2;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]"
+		"checkbox[5,6.2;mapart_gamma;Gamma;" .. (s.gamma and "true" or "false") .. "]" ..
+		"checkbox[5,6.9;mapart_invonly;Inventory only;" .. (s.invonly and "true" or "false") .. "]"
 
 	-- Convert button + status
 	fs = fs .. "button[5,7;3,0.8;mapart_convert;Convert]"
@@ -379,17 +410,29 @@ handle_mapart_events = function(fields)
 		local out_h = tonumber(fields.mapart_h) or 128
 		local do_dither = fields.mapart_dither == "true"
 		local do_gamma = fields.mapart_gamma == "true"
+		local do_invonly = fields.mapart_invonly == "true"
 
 		s.out_w = out_w
 		s.out_h = out_h
 		s.dither = do_dither
 		s.gamma = do_gamma
+		s.invonly = do_invonly
+
+		local pal = palette
+		if do_invonly then
+			pal = build_inv_palette()
+			if not pal or #pal == 0 then
+				s.status = "No usable blocks in inventory"
+				return true
+			end
+		end
 
 		local schem = image_to_schem(img.width, img.height, img.data, {
 			width = out_w,
 			height = out_h,
 			dither = do_dither,
 			gamma = do_gamma,
+			palette = pal,
 		})
 
 		if #schem.data == 0 then
@@ -410,7 +453,7 @@ handle_mapart_events = function(fields)
 end
 
 core.register_chatcommand("mapart", {
-	params = "<path> [width] [height] [--dither] [--gamma]",
+	params = "<path> [width] [height] [--dither] [--gamma] [--invonly]",
 	description = "Convert a PNG image to an MTS schematic using map colors",
 	func = function(param)
 		if param == "" then
@@ -427,12 +470,15 @@ core.register_chatcommand("mapart", {
 		local out_h = 128
 		local do_dither = false
 		local do_gamma = false
+		local do_invonly = false
 
 		for i = 2, #parts do
 			if parts[i] == "--dither" then
 				do_dither = true
 			elseif parts[i] == "--gamma" then
 				do_gamma = true
+			elseif parts[i] == "--invonly" then
+				do_invonly = true
 			elseif out_w == 128 and not parts[i]:match("^%-%-") then
 				out_w = tonumber(parts[i]) or 128
 			elseif not parts[i]:match("^%-%-") then
@@ -450,11 +496,20 @@ core.register_chatcommand("mapart", {
 			return false, "Failed to decode image"
 		end
 
+		local pal = palette
+		if do_invonly then
+			pal = build_inv_palette()
+			if not pal or #pal == 0 then
+				return false, "No usable blocks in inventory"
+			end
+		end
+
 		local schem = image_to_schem(img.width, img.height, img.data, {
 			width = out_w,
 			height = out_h,
 			dither = do_dither,
 			gamma = do_gamma,
+			palette = pal,
 		})
 
 		if #schem.data == 0 then
