@@ -33,8 +33,8 @@ OpenGLVersion COpenGL3Driver::getVersionFromOpenGL() const
 
 void COpenGL3Driver::initFeatures()
 {
-	if (Version.Spec != OpenGLSpec::Compat) {
-		throw std::runtime_error("OpenGL 3 driver requires Compatibility context");
+	if (Version.Spec != OpenGLSpec::Compat && Version.Spec != OpenGLSpec::Core) {
+		throw std::runtime_error("OpenGL 3 driver requires Compatibility or Core context");
 	}
 	if (!isVersionAtLeast(3, 2)) {
 		throw std::runtime_error("OpenGL 3 driver requires OpenGL >= 3.2");

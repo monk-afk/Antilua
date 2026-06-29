@@ -670,8 +670,13 @@ bool CIrrDeviceSDL::createWindowWithContext()
 #else // !_IRR_EMSCRIPTEN_PLATFORM_
 	switch (CreationParams.DriverType) {
 	case video::EDT_OPENGL:
+#ifdef __APPLE__
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#else
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+#endif
 		break;
 	case video::EDT_OPENGL3:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -727,11 +732,22 @@ bool CIrrDeviceSDL::createWindowWithContext()
 
 	Context = SDL_GL_CreateContext(Window);
 	if (!Context && CreationParams.DriverType == video::EDT_OPENGL) {
-		// Fallback: try OpenGL 2.1 context
+#ifdef __APPLE__
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
+#else
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#endif
 		Context = SDL_GL_CreateContext(Window);
 	}
+#ifdef __APPLE__
+	if (!Context && CreationParams.DriverType == video::EDT_OPENGL3) {
+		// macOS doesn't support compat profile for GL 3.2+; try core
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		Context = SDL_GL_CreateContext(Window);
+	}
+#endif
 	if (!Context) {
 		os::Printer::log("Could not create context", SDL_GetError(), ELL_WARNING);
 		SDL_DestroyWindow(Window);
