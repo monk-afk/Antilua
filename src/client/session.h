@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <ctime>
 #include <string>
-#include <sys/types.h>
 
 // Session file management for detach/re-attach.
 // The session file lets a new antilua invocation discover a detached client.
@@ -24,7 +23,7 @@ struct Info {
 std::string getSessionDir();
 
 // Write session file for the given PID and pipe_lua path.
-void write(pid_t pid, const std::string &pipe_lua_path);
+void write(int pid, const std::string &pipe_lua_path);
 
 // Read session file, return Info with pid=0 if not found/valid.
 Info read();

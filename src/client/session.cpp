@@ -10,7 +10,6 @@
 
 #include <fstream>
 #include <sstream>
-#include <unistd.h>
 #include <cstdlib>
 
 namespace session {
@@ -35,7 +34,7 @@ static std::string sessionFilePath()
 	return getSessionDir() + "/session";
 }
 
-void write(pid_t pid, const std::string &pipe_lua_path)
+void write(int pid, const std::string &pipe_lua_path)
 {
 	std::string dir = getSessionDir();
 	if (!fs::CreateAllDirs(dir)) {
@@ -87,14 +86,15 @@ bool isLive()
 	Info info = read();
 	if (info.pid <= 0)
 		return false;
-	return kill((pid_t)info.pid, 0) == 0;
+	return porting::pid_alive(info.pid);
 }
 
 void remove()
 {
 	std::string path = sessionFilePath();
 	// Don't warn on ENOENT
-	if (unlink(path.c_str()) != 0 && errno != ENOENT)
+	// Only warn on non-ENOENT errors
+	if (fs::PathExists(path) && !fs::DeleteSingleFileOrEmptyDirectory(path, false))
 		warningstream << "session: cannot remove " << path << std::endl;
 }
 
