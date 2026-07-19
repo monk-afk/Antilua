@@ -30,7 +30,10 @@ public:
 	virtual bool OnEvent(const SEvent &event);
 
 	// Gets the analog value corresponding to a key
-	float GetAxisValue(GameKeyType key) const { return axisValues[key]; }
+	float GetAxisValue(GameKeyType key) const
+	{
+		return std::max(axisValues[key], simulatedAxisValues[key]);
+	}
 
 	// Checks whether a key is held down
 	bool IsKeyDown(GameKeyType key) const
@@ -69,21 +72,32 @@ public:
 		mouse_wheel = 0;
 	}
 
-	void setKeypress(const KeyPress &keyCode)
+	bool setKeypress(const std::vector<KeyPress> &keyCodes, bool pressed)
 	{
-		auto it = keysListenedFor.find(keyCode);
-		if (it != keysListenedFor.end()) {
-			auto action = it->second;
-			keyWasDown.set(action);
-			keyWasPressed.set(action);
-		}
-	}
+		if (keyCodes.empty())
+			return false;
 
-	void unsetKeypress(const KeyPress &keyCode)
-	{
-		auto it = keysListenedFor.find(keyCode);
-		if (it != keysListenedFor.end())
-			keyWasDown.reset(it->second);
+		for (size_t i = 0; i < keybindings.size(); ++i) {
+			const auto &boundKeys = keybindings[i].keys;
+			if (boundKeys.size() <= keyCodes.size() ||
+					!std::equal(keyCodes.begin(), keyCodes.end(), boundKeys.begin()))
+				continue;
+
+			auto action = static_cast<GameKeyType>(i);
+			if (pressed) {
+				if (!IsKeyDown(action)) {
+					keyWasDown.set(action);
+					keyWasPressed.set(action);
+				}
+				simulatedAxisValues[action] = 1.0f;
+			} else if (simulatedAxisValues[action] > 0) {
+				simulatedAxisValues[action] = 0.0f;
+				if (!IsKeyDown(action))
+					keyWasReleased.set(action);
+			}
+			return true;
+		}
+		return false;
 	}
 
 	void releaseAllKeys()
@@ -170,6 +184,8 @@ private:
 
 	// The current state of keys
 	std::array<float, GameKeyType::INTERNAL_ENUM_COUNT> axisValues;
+	// Programmatic held-key state survives physical input clearing on focus loss.
+	std::array<float, GameKeyType::INTERNAL_ENUM_COUNT> simulatedAxisValues{};
 
 	// Like axisValues but only reset when that key is read
 	std::bitset<GameKeyType::INTERNAL_ENUM_COUNT> keyWasDown;
@@ -220,8 +236,7 @@ public:
 		return getAxisValue(k) > 0;
 	}
 	virtual bool wasKeyDown(GameKeyType k) = 0;
-	virtual void setKeypress(const KeyPress &keyCode) {}
-	virtual void unsetKeypress(const KeyPress &keyCode) {}
+	virtual bool setKeypress(const std::vector<KeyPress> &keyCodes, bool pressed) { return false; }
 	virtual bool wasKeyPressed(GameKeyType k) = 0;
 	virtual bool wasKeyReleased(GameKeyType k) = 0;
 	virtual bool cancelPressed() = 0;
@@ -274,6 +289,10 @@ public:
 	virtual bool wasKeyReleased(GameKeyType k)
 	{
 		return m_receiver->WasKeyReleased(k);
+	}
+	virtual bool setKeypress(const std::vector<KeyPress> &keyCodes, bool pressed)
+	{
+		return m_receiver->setKeypress(keyCodes, pressed);
 	}
 
 	virtual bool cancelPressed()

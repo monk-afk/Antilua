@@ -121,6 +121,12 @@ core.send_respawn()                        -- Send respawn request
 core.disconnect()                          -- Exit to main menu
 core.set_keypress(key_setting, pressed) -> bool
     -- Simulate pressing/releasing a key binding
+    -- Use the setting suffix: "forward" maps to keymap_forward.
+    -- Bounded forward movement example:
+    core.set_keypress("forward", true)
+    core.after(0.5, function()
+        core.set_keypress("forward", false)
+    end)
 core.drop_selected_item()                  -- Drop currently wielded item stack
 core.send_inventory_fields(formname, fields)
     -- Send inventory form fields to server (requires open form)

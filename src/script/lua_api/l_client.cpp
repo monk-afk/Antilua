@@ -528,12 +528,7 @@ int ModApiClient::l_set_keypress(lua_State *L)
 	bool pressed = lua_isboolean(L, 2) && readParam<bool>(L, 2);
 	try {
 		const auto keylist = getKeySetting(setting_name.c_str());
-		KeyPress keyCode = keylist.empty() ? KeyPress() : keylist[0];
-		if (pressed)
-			g_game->getInput()->setKeypress(keyCode);
-		else
-			g_game->getInput()->unsetKeypress(keyCode);
-		lua_pushboolean(L, true);
+		lua_pushboolean(L, g_game->getInput()->setKeypress(keylist, pressed));
 	} catch (SettingNotFoundException &) {
 		lua_pushboolean(L, false);
 	}

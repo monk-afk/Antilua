@@ -180,20 +180,32 @@ pipe_request '{"code":"return \"after invalid fields\"","file":"'$RESP_FILE'"}' 
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "invalid field recovery" "$(printf "ok\nafter invalid fields")" "$RESULT"
 
-# Test 11: detach metadata is stored in an owner-only directory and file
+# Test 11: simulated keypress is held across frames and then released
+pipe_request '{"code":"return core.set_keypress(\"forward\",true)","file":"'$RESP_FILE'"}' || true
+sleep 0.2
+pipe_request '{"code":"return core.localplayer:get_control().up","file":"'$RESP_FILE'"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "simulated keypress held" "$(printf 'ok\ntrue')" "$RESULT"
+pipe_request '{"code":"return core.set_keypress(\"forward\",false)","file":"'$RESP_FILE'"}' || true
+sleep 0.2
+pipe_request '{"code":"return core.localplayer:get_control().up","file":"'$RESP_FILE'"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "simulated keypress released" "$(printf 'ok\nfalse')" "$RESULT"
+
+# Test 12: detach metadata is stored in an owner-only directory and file
 pipe_request '{"code":"core.detach()","file":"'$RESP_FILE'"}' || true
 SESSION_DIR="$RUNTIME_DIR/antilua"
 SESSION_FILE="$SESSION_DIR/session"
 check "session directory mode" "700" "$(stat -c '%a' "$SESSION_DIR")"
 check "session file mode" "600" "$(stat -c '%a' "$SESSION_FILE")"
 
-# Test 12: opt-in JSON preserves structured Lua return values
+# Test 13: opt-in JSON preserves structured Lua return values
 pipe_request '{"code":"return {answer=42,items={\"stone\",\"dirt\"}}","file":"'$RESP_FILE'","result_format":"json"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "structured JSON result" \
 	"$(printf 'ok\n[{"answer":42,"items":["stone","dirt"]}]')" "$RESULT"
 
-# Test 13: an instruction budget interrupts a loop and the client recovers
+# Test 14: an instruction budget interrupts a loop and the client recovers
 pipe_request '{"code":"while true do end","file":"'$RESP_FILE'","instruction_limit":100000}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "instruction limit" \
@@ -202,13 +214,13 @@ pipe_request '{"code":"return \"after limited loop\"","file":"'$RESP_FILE'"}' ||
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "instruction limit recovery" "$(printf 'ok\nafter limited loop')" "$RESULT"
 
-# Test 14: synchronous helper returns compact structured output
+# Test 15: synchronous helper returns compact structured output
 RESULT=$(./util/antilua-pipe --pipe "$PIPE_PATH" --json \
 	'return {source="helper",values={2,4,8}}')
 check "synchronous CLI helper" \
 	'[{"source":"helper","values":[2,4,8]}]' "$RESULT"
 
-# Test 15: helper exposes Lua failures through its documented exit status
+# Test 16: helper exposes Lua failures through its documented exit status
 if ./util/antilua-pipe --pipe "$PIPE_PATH" 'error("helper failure")' \
 		>/dev/null 2>&1; then
 	CLI_STATUS=0

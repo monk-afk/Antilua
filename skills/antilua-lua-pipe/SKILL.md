@@ -76,6 +76,16 @@ core.localplayer:set_yaw(90) / set_pitch(0)   -- degrees
 core.pos_to_string(pos, 0)                    -- "(X,Y,Z)"
 ```
 
+For bounded movement, use key-setting suffixes and schedule the release in the
+same Lua request so a later transport failure cannot leave the key held:
+
+```lua
+core.set_keypress("forward", true) -- keymap_forward, not get_control().up
+core.after(0.5, function()
+    core.set_keypress("forward", false)
+end)
+```
+
 ### Looking & Pointing
 
 ```lua
@@ -170,6 +180,7 @@ a:apply()
 | Craft grid has items but craftpreview is empty | Might require server sync; check both `craftresult` and `craftpreview` |
 | `core.get_wielded_item()` vs `core.localplayer:get_wielded_item()` | Use the latter (the former may not exist in some contexts) |
 | `minetest.*` alias vs `core.*` | Use `core.*` (both work) |
+| `set_keypress("up", true)` reports success but does not move | Use `"forward"`, the suffix of `keymap_forward` |
 
 ## Cheats
 
