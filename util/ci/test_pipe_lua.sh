@@ -9,11 +9,12 @@ PIPE_PATH="/tmp/antilua_lua_test"
 RESP_FILE="/tmp/antilua_lua_test_resp"
 CONFIG_FILE=$(mktemp)
 WORLD_DIR=$(mktemp -d)
+VICTIM_FILE=$(mktemp)
 
 cleanup() {
 	kill $GAME_PID 2>/dev/null || true
 	wait $GAME_PID 2>/dev/null || true
-	rm -f "$PIPE_PATH" "$RESP_FILE" "$CONFIG_FILE"
+	rm -f "$PIPE_PATH" "$RESP_FILE" "$CONFIG_FILE" "$VICTIM_FILE"
 	rm -rf "$WORLD_DIR"
 }
 trap cleanup EXIT
@@ -157,6 +158,16 @@ rm -f "$RESP_FILE"
 pipe_request '{"code":"return \"after oversized\"","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "oversized request recovery" "$(printf "ok\nafter oversized")" "$RESULT"
+
+# Test 9: refuse a symlink response without modifying its target
+printf 'preserved\n' > "$VICTIM_FILE"
+rm -f "$RESP_FILE"
+ln -s "$VICTIM_FILE" "$RESP_FILE"
+printf '%s\n' '{"code":"return \"unsafe\"","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
+sleep 0.5
+RESULT=$(cat "$VICTIM_FILE")
+check "symlink response refusal" "preserved" "$RESULT"
+rm -f "$RESP_FILE"
 
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="

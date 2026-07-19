@@ -176,6 +176,49 @@ void ClientLuaPipe::process()
 void ClientLuaPipe::writeResult(const std::string &file, bool ok,
 	const std::string &content)
 {
+#ifndef _WIN32
+	int flags = O_WRONLY | O_CREAT | O_EXCL;
+#ifdef O_NOFOLLOW
+	flags |= O_NOFOLLOW;
+#endif
+	int fd = open(file.c_str(), flags, 0600);
+	if (fd < 0 && errno == EEXIST) {
+		flags = O_WRONLY;
+#ifdef O_NOFOLLOW
+		flags |= O_NOFOLLOW;
+#endif
+		fd = open(file.c_str(), flags);
+	}
+
+	struct stat file_stat;
+	if (fd < 0 || fstat(fd, &file_stat) != 0 ||
+			!S_ISREG(file_stat.st_mode) || file_stat.st_uid != geteuid() ||
+			fchmod(fd, 0600) != 0 || ftruncate(fd, 0) != 0) {
+		if (fd >= 0)
+			close(fd);
+		warningstream << "ClientLuaPipe: refusing unsafe response file "
+			<< file << std::endl;
+		return;
+	}
+
+	std::string output = ok ? "ok\n" : "error\n";
+	if (!content.empty())
+		output += content + "\n";
+
+	size_t offset = 0;
+	while (offset < output.size()) {
+		ssize_t written = write(fd, output.data() + offset, output.size() - offset);
+		if (written < 0 && errno == EINTR)
+			continue;
+		if (written <= 0) {
+			warningstream << "ClientLuaPipe: failed writing response to "
+				<< file << std::endl;
+			break;
+		}
+		offset += written;
+	}
+	close(fd);
+#else
 	std::ofstream ofs(file);
 	if (!ofs) {
 		warningstream << "ClientLuaPipe: cannot write to "
@@ -185,6 +228,7 @@ void ClientLuaPipe::writeResult(const std::string &file, bool ok,
 	ofs << (ok ? "ok" : "error") << std::endl;
 	if (!content.empty())
 		ofs << content << std::endl;
+#endif
 }
 
 void ClientLuaPipe::processLine(const std::string &line)
