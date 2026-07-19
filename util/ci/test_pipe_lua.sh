@@ -8,11 +8,13 @@
 PIPE_PATH="/tmp/antilua_lua_test"
 RESP_FILE="/tmp/antilua_lua_test_resp"
 CONFIG_FILE=$(mktemp)
+WORLD_DIR=$(mktemp -d)
 
 cleanup() {
 	kill $GAME_PID 2>/dev/null || true
 	wait $GAME_PID 2>/dev/null || true
 	rm -f "$PIPE_PATH" "$RESP_FILE" "$CONFIG_FILE"
+	rm -rf "$WORLD_DIR"
 }
 trap cleanup EXIT
 
@@ -21,6 +23,13 @@ cat > "$CONFIG_FILE" << 'ENDCONF'
 pipe_lua_enable = true
 pipe_lua_path = /tmp/antilua_lua_test
 ENDCONF
+
+cat > "$WORLD_DIR/world.mt" << 'ENDWORLD'
+gameid = devtest
+backend = dummy
+player_backend = dummy
+auth_backend = dummy
+ENDWORLD
 
 echo "=== Client Lua Pipe Test ==="
 
@@ -36,7 +45,7 @@ else
 fi
 
 # Start game in background with 30s timeout
-$VIRT_DISPLAY timeout 30 ./bin/antilua --info --world "worlds/test_df" --go \
+$VIRT_DISPLAY timeout 30 ./bin/antilua --info --world "$WORLD_DIR" --go \
 	--config "$CONFIG_FILE" 2>/dev/null &
 GAME_PID=$!
 
@@ -53,8 +62,24 @@ if [ ! -p "$PIPE_PATH" ]; then
 	exit 1
 fi
 
+PIPE_MODE=$(stat -c '%a' "$PIPE_PATH")
+if [ "$PIPE_MODE" != "600" ]; then
+	echo "FAIL: Pipe mode is $PIPE_MODE, expected 600"
+	exit 1
+fi
+
 PASS_COUNT=0
 FAIL_COUNT=0
+
+pipe_request() {
+	rm -f "$RESP_FILE"
+	printf '%s\n' "$1" > "$PIPE_PATH"
+	for _ in $(seq 1 50); do
+		[ -f "$RESP_FILE" ] && return 0
+		sleep 0.1
+	done
+	return 1
+}
 
 check() {
 	local name="$1"
@@ -72,14 +97,12 @@ check() {
 }
 
 # Test 1: simple arithmetic expression
-echo '{"code":"return 1+1","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"return 1+1","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "simple expression" "$(printf "ok\n2")" "$RESULT"
 
 # Test 2: error handling
-echo '{"code":"error(\"test error\")","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"error(\"test error\")","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 if echo "$RESULT" | head -1 | grep -q '^error$'; then
 	echo "  PASS: error handling"
@@ -92,32 +115,27 @@ else
 fi
 
 # Test 3: string result
-echo '{"code":"return \"hello\"","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"return \"hello\"","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "string result" "$(printf "ok\nhello")" "$RESULT"
 
 # Test 4: boolean results
-echo '{"code":"return true, false","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"return true, false","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "boolean results" "$(printf "ok\ntrue\nfalse")" "$RESULT"
 
 # Test 5: nil result
-echo '{"code":"return nil","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"return nil","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "nil result" "$(printf "ok\nnil")" "$RESULT"
 
 # Test 6: no return value
-echo '{"code":"local x = 1","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"local x = 1","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "no return value" "$(printf "ok")" "$RESULT"
 
 # Test 7: table serialization via tostring
-echo '{"code":"return {1,2,3}","file":"'$RESP_FILE'"}' > "$PIPE_PATH"
-sleep 0.5
+pipe_request '{"code":"return {1,2,3}","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 FIRST_LINE=$(echo "$RESULT" | head -1)
 if [ "$FIRST_LINE" = "ok" ]; then

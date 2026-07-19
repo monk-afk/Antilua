@@ -11,6 +11,7 @@
 #include <sstream>
 
 #ifndef _WIN32
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -22,13 +23,47 @@ ClientLuaPipe::ClientLuaPipe(Client *client, const std::string &path)
 	: m_client(client), m_path(path), m_fd(kInvalidFd)
 {
 #ifndef _WIN32
-	// Create FIFO; ignore EEXIST
-	mkfifo(m_path.c_str(), 0666);
+	if (mkfifo(m_path.c_str(), 0600) != 0 && errno != EEXIST) {
+		warningstream << "ClientLuaPipe: failed creating FIFO at "
+			<< m_path << std::endl;
+		return;
+	}
 
-	m_fd = open(m_path.c_str(), O_RDONLY | O_NONBLOCK);
+	struct stat path_stat;
+	if (lstat(m_path.c_str(), &path_stat) != 0 ||
+			!S_ISFIFO(path_stat.st_mode) || path_stat.st_uid != geteuid()) {
+		warningstream << "ClientLuaPipe: refusing pipe path that is not an "
+			"owned FIFO: " << m_path << std::endl;
+		return;
+	}
+
+	int open_flags = O_RDONLY | O_NONBLOCK;
+#ifdef O_NOFOLLOW
+	open_flags |= O_NOFOLLOW;
+#endif
+	m_fd = open(m_path.c_str(), open_flags);
 	if (m_fd < 0) {
 		warningstream << "ClientLuaPipe: failed to open FIFO at "
 			<< m_path << std::endl;
+		return;
+	}
+
+	struct stat fd_stat;
+	if (fstat(m_fd, &fd_stat) != 0 || !S_ISFIFO(fd_stat.st_mode) ||
+			fd_stat.st_uid != geteuid() || fd_stat.st_dev != path_stat.st_dev ||
+			fd_stat.st_ino != path_stat.st_ino) {
+		warningstream << "ClientLuaPipe: FIFO changed while opening: "
+			<< m_path << std::endl;
+		close(m_fd);
+		m_fd = kInvalidFd;
+		return;
+	}
+
+	if (fchmod(m_fd, 0600) != 0) {
+		warningstream << "ClientLuaPipe: failed securing FIFO at "
+			<< m_path << std::endl;
+		close(m_fd);
+		m_fd = kInvalidFd;
 	}
 #else
 	m_fd = CreateNamedPipeA(m_path.c_str(), PIPE_ACCESS_INBOUND,
@@ -47,9 +82,18 @@ ClientLuaPipe::ClientLuaPipe(Client *client, const std::string &path)
 ClientLuaPipe::~ClientLuaPipe()
 {
 #ifndef _WIN32
-	if (m_fd >= 0)
+	if (m_fd >= 0) {
+		struct stat fd_stat;
+		struct stat path_stat;
+		const bool same_fifo = fstat(m_fd, &fd_stat) == 0 &&
+			lstat(m_path.c_str(), &path_stat) == 0 &&
+			S_ISFIFO(path_stat.st_mode) &&
+			fd_stat.st_dev == path_stat.st_dev &&
+			fd_stat.st_ino == path_stat.st_ino;
 		close(m_fd);
-	unlink(m_path.c_str());
+		if (same_fifo)
+			unlink(m_path.c_str());
+	}
 #else
 	if (m_fd != INVALID_HANDLE_VALUE) {
 		DisconnectNamedPipe(m_fd);
