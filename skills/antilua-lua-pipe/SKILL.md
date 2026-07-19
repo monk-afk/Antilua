@@ -34,6 +34,18 @@ sleep 0.3 && cat /tmp/r_structured
 The response begins with `ok`; its second line is a JSON array containing each
 Lua return value. Omit `result_format` to retain the legacy text response.
 
+When running generated or unfamiliar Lua, set an instruction budget so a loop
+cannot freeze the client:
+
+```bash
+echo '{"code":"while true do end", "file":"/tmp/r_limited", "instruction_limit":100000}' > /tmp/antilua_lua
+sleep 0.3 && cat /tmp/r_limited
+```
+
+The example returns `error` and `pipe instruction limit exceeded`. Omit
+`instruction_limit` only for code that intentionally needs unrestricted runtime.
+The budget counts Lua instructions; it cannot interrupt a blocking native call.
+
 ## Basic Commands
 
 Always use unique response files to avoid races:

@@ -732,6 +732,16 @@ ok
 
 The default `"result_format":"text"` retains the original response format.
 
+Generated or unfamiliar Lua can be given an instruction budget. This example
+interrupts its infinite loop and returns an error instead of freezing the client:
+
+```json
+{"code":"while true do end", "file":"/tmp/resp", "instruction_limit":100000}
+```
+
+`instruction_limit` is optional; omitting it preserves unlimited execution. It
+counts Lua VM instructions and is not a wall-clock timeout for blocking native calls.
+
 ---
 
 13. Session Detach / Reattach

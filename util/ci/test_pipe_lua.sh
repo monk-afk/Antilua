@@ -193,6 +193,15 @@ RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "structured JSON result" \
 	"$(printf 'ok\n[{"answer":42,"items":["stone","dirt"]}]')" "$RESULT"
 
+# Test 13: an instruction budget interrupts a loop and the client recovers
+pipe_request '{"code":"while true do end","file":"'$RESP_FILE'","instruction_limit":100000}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "instruction limit" \
+	"$(printf 'error\npipe instruction limit exceeded')" "$RESULT"
+pipe_request '{"code":"return \"after limited loop\"","file":"'$RESP_FILE'"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "instruction limit recovery" "$(printf 'ok\nafter limited loop')" "$RESULT"
+
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

@@ -8,8 +8,14 @@
 #include "serialization.h"
 
 #include <json/json.h>
+#if USE_LUAJIT
+extern "C" {
+#include <luajit.h>
+}
+#endif
 
 #include <fstream>
+#include <limits>
 #include <sstream>
 
 #ifndef _WIN32
@@ -20,6 +26,11 @@
 #else
 #include "filesys.h"
 #endif
+
+static void pipeInstructionLimitHook(lua_State *L, lua_Debug *)
+{
+	luaL_error(L, "pipe instruction limit exceeded");
+}
 
 ClientLuaPipe::ClientLuaPipe(Client *client, const std::string &path)
 	: m_client(client), m_path(path), m_fd(kInvalidFd)
@@ -266,6 +277,22 @@ void ClientLuaPipe::processLine(const std::string &line)
 		warningstream << "ClientLuaPipe: 'result_format' must be a string" << std::endl;
 		return;
 	}
+	if (root.isMember("instruction_limit") && !root["instruction_limit"].isUInt64()) {
+		warningstream << "ClientLuaPipe: 'instruction_limit' must be a positive integer"
+			<< std::endl;
+		return;
+	}
+
+	int instruction_limit = 0;
+	if (root.isMember("instruction_limit")) {
+		const Json::LargestUInt limit = root["instruction_limit"].asLargestUInt();
+		if (limit == 0 || limit > std::numeric_limits<int>::max()) {
+			warningstream << "ClientLuaPipe: 'instruction_limit' is out of range"
+				<< std::endl;
+			return;
+		}
+		instruction_limit = static_cast<int>(limit);
+	}
 
 	const std::string result_format = root.get("result_format", "text").asString();
 	if (result_format != "text" && result_format != "json") {
@@ -302,9 +329,25 @@ void ClientLuaPipe::processLine(const std::string &line)
 		writeResult(response_file, false, err);
 		return;
 	}
+	if (instruction_limit > 0) {
+#if USE_LUAJIT
+		luaJIT_setmode(L, -1, LUAJIT_MODE_FUNC | LUAJIT_MODE_OFF);
+#endif
+	}
 
-	// Execute
+	// Execute, optionally replacing and then restoring any existing debug hook.
+	lua_Hook previous_hook = nullptr;
+	int previous_hook_mask = 0;
+	int previous_hook_count = 0;
+	if (instruction_limit > 0) {
+		previous_hook = lua_gethook(L);
+		previous_hook_mask = lua_gethookmask(L);
+		previous_hook_count = lua_gethookcount(L);
+		lua_sethook(L, pipeInstructionLimitHook, LUA_MASKCOUNT, instruction_limit);
+	}
 	int pcrc = lua_pcall(L, 0, LUA_MULTRET, 0);
+	if (instruction_limit > 0)
+		lua_sethook(L, previous_hook, previous_hook_mask, previous_hook_count);
 	if (pcrc != LUA_OK) {
 		std::string err = lua_tostring(L, -1);
 		lua_pop(L, 1);
