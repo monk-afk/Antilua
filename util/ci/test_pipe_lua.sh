@@ -169,6 +169,14 @@ RESULT=$(cat "$VICTIM_FILE")
 check "symlink response refusal" "preserved" "$RESULT"
 rm -f "$RESP_FILE"
 
+# Test 10: reject invalid field types and continue processing
+printf '%s\n' \
+	'{"code":{"not":"a string"}}' \
+	'{"code":"return 1","file":["not","a","string"]}' > "$PIPE_PATH"
+pipe_request '{"code":"return \"after invalid fields\"","file":"'$RESP_FILE'"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "invalid field recovery" "$(printf "ok\nafter invalid fields")" "$RESULT"
+
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

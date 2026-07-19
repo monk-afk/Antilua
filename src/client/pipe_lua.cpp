@@ -246,8 +246,18 @@ void ClientLuaPipe::processLine(const std::string &line)
 		return;
 	}
 
-	if (!root.isMember("code")) {
-		warningstream << "ClientLuaPipe: missing 'code' field" << std::endl;
+	if (!root.isObject()) {
+		warningstream << "ClientLuaPipe: request must be a JSON object" << std::endl;
+		return;
+	}
+
+	if (!root.isMember("code") || !root["code"].isString()) {
+		warningstream << "ClientLuaPipe: 'code' must be a string" << std::endl;
+		return;
+	}
+
+	if (root.isMember("file") && !root["file"].isString()) {
+		warningstream << "ClientLuaPipe: 'file' must be a string" << std::endl;
 		return;
 	}
 
