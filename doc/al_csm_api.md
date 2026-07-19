@@ -726,6 +726,7 @@ The client can detach (hide its window, run headlessly) and later reattach.
 - **Detach**: `core.detach()` or the "Detach" button in the pause menu.
   The game loop continues (physics, network, Lua) but rendering is suspended.
   A session file is written to `$XDG_RUNTIME_DIR/antilua/session`.
+  Without `XDG_RUNTIME_DIR`, the owner-only fallback is `/tmp/antilua-$UID/session`.
 - **Reattach**: Run `antilua --attach` from the terminal. Requires
   `pipe_lua_enable = true` — the reattach command is sent via the Lua pipe.
 - **Start fresh**: `antilua --forcenew` bypasses the session check.

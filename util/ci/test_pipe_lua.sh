@@ -10,12 +10,15 @@ RESP_FILE="/tmp/antilua_lua_test_resp"
 CONFIG_FILE=$(mktemp)
 WORLD_DIR=$(mktemp -d)
 VICTIM_FILE=$(mktemp)
+RUNTIME_DIR=$(mktemp -d)
+chmod 700 "$RUNTIME_DIR"
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
 
 cleanup() {
 	kill $GAME_PID 2>/dev/null || true
 	wait $GAME_PID 2>/dev/null || true
 	rm -f "$PIPE_PATH" "$RESP_FILE" "$CONFIG_FILE" "$VICTIM_FILE"
-	rm -rf "$WORLD_DIR"
+	rm -rf "$WORLD_DIR" "$RUNTIME_DIR"
 }
 trap cleanup EXIT
 
@@ -176,6 +179,13 @@ printf '%s\n' \
 pipe_request '{"code":"return \"after invalid fields\"","file":"'$RESP_FILE'"}' || true
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "invalid field recovery" "$(printf "ok\nafter invalid fields")" "$RESULT"
+
+# Test 11: detach metadata is stored in an owner-only directory and file
+pipe_request '{"code":"core.detach()","file":"'$RESP_FILE'"}' || true
+SESSION_DIR="$RUNTIME_DIR/antilua"
+SESSION_FILE="$SESSION_DIR/session"
+check "session directory mode" "700" "$(stat -c '%a' "$SESSION_DIR")"
+check "session file mode" "600" "$(stat -c '%a' "$SESSION_FILE")"
 
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="

@@ -22,7 +22,7 @@ struct Info {
 	uint64_t timestamp = 0;
 };
 
-// Path to the session directory: $XDG_RUNTIME_DIR/antilua/ or /tmp/antilua-$USER/
+// Path to the session directory: $XDG_RUNTIME_DIR/antilua/ or /tmp/antilua-$UID/
 std::string getSessionDir();
 
 #ifdef _WIN32
