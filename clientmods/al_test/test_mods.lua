@@ -311,8 +311,12 @@ function test_world_interaction(T)
 	T.defer("ws.dig does not crash on air node", function()
 		local pos = core.localplayer:get_pos()
 		if pos then
-			-- Should silently fail on air (returns nil/true/false), not crash
-			local ok, err = pcall(ws.dig, vector.round(pos))
+			local node_pos = vector.round(pos)
+			local node = core.get_node_or_nil(node_pos)
+			-- Player position is not guaranteed to be air at join time.
+			if not node or node.name ~= "air" then return end
+			-- Should silently fail on air (returns nil/true/false), not crash.
+			local ok, err = pcall(ws.dig, node_pos)
 			T.assert(ok, "ws.dig on air should not throw; error: " .. tostring(err))
 		end
 	end)
