@@ -716,6 +716,22 @@ ok
 
 On error, the first line is `error` followed by the error message.
 
+For structured results, set `"result_format":"json"`. The second response
+line is then a JSON array containing each Lua return value. For example:
+
+```json
+{"code":"return {position=core.localplayer:get_pos(), players=core.get_player_names()}", "file":"/tmp/resp", "result_format":"json"}
+```
+
+The Lua expression returns one table, so a successful response has this shape:
+
+```text
+ok
+[{"players":["player"],"position":{"x":0.0,"y":10.0,"z":0.0}}]
+```
+
+The default `"result_format":"text"` retains the original response format.
+
 ---
 
 13. Session Detach / Reattach

@@ -187,6 +187,12 @@ SESSION_FILE="$SESSION_DIR/session"
 check "session directory mode" "700" "$(stat -c '%a' "$SESSION_DIR")"
 check "session file mode" "600" "$(stat -c '%a' "$SESSION_FILE")"
 
+# Test 12: opt-in JSON preserves structured Lua return values
+pipe_request '{"code":"return {answer=42,items={\"stone\",\"dirt\"}}","file":"'$RESP_FILE'","result_format":"json"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "structured JSON result" \
+	"$(printf 'ok\n[{"answer":42,"items":["stone","dirt"]}]')" "$RESULT"
+
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

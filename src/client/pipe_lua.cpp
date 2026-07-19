@@ -3,7 +3,9 @@
 
 #include "pipe_lua.h"
 #include "client.h"
+#include "script/common/c_content.h"
 #include "script/scripting_client.h"
+#include "serialization.h"
 
 #include <json/json.h>
 
@@ -260,6 +262,17 @@ void ClientLuaPipe::processLine(const std::string &line)
 		warningstream << "ClientLuaPipe: 'file' must be a string" << std::endl;
 		return;
 	}
+	if (root.isMember("result_format") && !root["result_format"].isString()) {
+		warningstream << "ClientLuaPipe: 'result_format' must be a string" << std::endl;
+		return;
+	}
+
+	const std::string result_format = root.get("result_format", "text").asString();
+	if (result_format != "text" && result_format != "json") {
+		warningstream << "ClientLuaPipe: unsupported result format '"
+			<< result_format << "'" << std::endl;
+		return;
+	}
 
 	std::string code = root["code"].asString();
 	std::string response_file = root.get("file", "").asString();
@@ -301,6 +314,28 @@ void ClientLuaPipe::processLine(const std::string &line)
 
 	// Collect only the return values (items above the saved top)
 	int nresults = lua_gettop(L) - top;
+	if (result_format == "json") {
+		Json::Value results(Json::arrayValue);
+		try {
+			for (int i = 1; i <= nresults; i++) {
+				Json::Value value;
+				read_json_value(L, value, top + i, 64);
+				results.append(std::move(value));
+			}
+		} catch (SerializationError &e) {
+			lua_pop(L, nresults);
+			writeResult(response_file, false, e.what());
+			return;
+		}
+
+		Json::StreamWriterBuilder writer;
+		writer["indentation"] = "";
+		std::string json = Json::writeString(writer, results);
+		lua_pop(L, nresults);
+		writeResult(response_file, true, json);
+		return;
+	}
+
 	if (nresults == 0) {
 		writeResult(response_file, true, "");
 		return;

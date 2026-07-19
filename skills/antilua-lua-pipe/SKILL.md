@@ -24,6 +24,16 @@ ok
 ```
 On error, first line is `error` followed by the Lua error message.
 
+For structured Lua return values, request JSON output:
+
+```bash
+echo '{"code":"return {position=core.localplayer:get_pos(), players=core.get_player_names()}", "file":"/tmp/r_structured", "result_format":"json"}' > /tmp/antilua_lua
+sleep 0.3 && cat /tmp/r_structured
+```
+
+The response begins with `ok`; its second line is a JSON array containing each
+Lua return value. Omit `result_format` to retain the legacy text response.
+
 ## Basic Commands
 
 Always use unique response files to avoid races:
@@ -133,7 +143,7 @@ a:apply()
 | Multiple commands share the same response file | Use unique file paths per request |
 | `InventoryAction` method chaining (`:from():to()`) doesn't return `self` | Assign to local variable, call each method separately |
 | Race: commands execute out of order | Add `sleep 0.3` between pipe writes |
-| Table values returned as `table: 0x...` (unserializable) | Use `dump()` or `core.write_json()` |
+| Table values returned as `table: 0x...` | Add `"result_format":"json"` to the pipe request |
 | Craft grid has items but craftpreview is empty | Might require server sync; check both `craftresult` and `craftpreview` |
 | `core.get_wielded_item()` vs `core.localplayer:get_wielded_item()` | Use the latter (the former may not exist in some contexts) |
 | `minetest.*` alias vs `core.*` | Use `core.*` (both work) |
