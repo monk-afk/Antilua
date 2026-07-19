@@ -21,6 +21,9 @@ class ClientLuaPipe
 	std::string m_path;
 	PipeHandle m_fd;
 	std::string m_buf;
+	bool m_discarding_line = false;
+
+	static constexpr size_t MAX_REQUEST_SIZE = 64 * 1024;
 
 	void processLine(const std::string &line);
 	void writeResult(const std::string &file, bool ok, const std::string &content);

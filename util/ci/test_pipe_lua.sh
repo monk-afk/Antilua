@@ -147,6 +147,17 @@ else
 	FAIL_COUNT=$((FAIL_COUNT + 1))
 fi
 
+# Test 8: discard an oversized request without poisoning the next request
+rm -f "$RESP_FILE"
+{
+	printf '{"code":"'
+	head -c 70000 /dev/zero | tr '\000' x
+	printf '","file":"%s"}\n' "$RESP_FILE"
+} > "$PIPE_PATH"
+pipe_request '{"code":"return \"after oversized\"","file":"'$RESP_FILE'"}' || true
+RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
+check "oversized request recovery" "$(printf "ok\nafter oversized")" "$RESULT"
+
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

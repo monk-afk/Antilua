@@ -136,16 +136,40 @@ void ClientLuaPipe::process()
 	buf[n] = '\0';
 	m_buf.append(buf, n);
 
-	size_t pos;
-	while ((pos = m_buf.find('\n')) != std::string::npos) {
+	while (true) {
+		size_t pos = m_buf.find('\n');
+		if (m_discarding_line) {
+			if (pos == std::string::npos) {
+				m_buf.clear();
+				return;
+			}
+			m_buf.erase(0, pos + 1);
+			m_discarding_line = false;
+			continue;
+		}
+
+		if (pos == std::string::npos) {
+			if (m_buf.size() > MAX_REQUEST_SIZE) {
+				warningstream << "ClientLuaPipe: discarding request larger than "
+					<< MAX_REQUEST_SIZE << " bytes" << std::endl;
+				m_buf.clear();
+				m_discarding_line = true;
+			}
+			return;
+		}
+
 		std::string line = m_buf.substr(0, pos);
 		m_buf.erase(0, pos + 1);
 #ifdef _WIN32
 		while (!line.empty() && line.back() == '\r')
 			line.pop_back();
 #endif
-		if (!line.empty())
+		if (line.size() > MAX_REQUEST_SIZE) {
+			warningstream << "ClientLuaPipe: discarding request larger than "
+				<< MAX_REQUEST_SIZE << " bytes" << std::endl;
+		} else if (!line.empty()) {
 			processLine(line);
+		}
 	}
 }
 
