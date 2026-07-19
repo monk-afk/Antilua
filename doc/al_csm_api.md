@@ -742,6 +742,22 @@ interrupts its infinite loop and returns an error instead of freezing the client
 `instruction_limit` is optional; omitting it preserves unlimited execution. It
 counts Lua VM instructions and is not a wall-clock timeout for blocking native calls.
 
+### Synchronous command-line helper
+
+`util/antilua-pipe` handles request encoding, unique owner-only response files,
+deadlines, cleanup, and exit statuses. Its default instruction budget is one
+million Lua VM instructions. For example:
+
+```bash
+util/antilua-pipe --json \
+  'return {position=core.localplayer:get_pos(), players=core.get_player_names()}'
+```
+
+Use `--pipe PATH` for a non-default FIFO, `--code-file PATH` for a Lua source
+file, or `--unlimited` to opt out of the default instruction budget. Exit status
+`10` means Lua returned an error, `11` means the deadline expired, and `12`
+means the pipe, response, or protocol transport failed.
+
 ---
 
 13. Session Detach / Reattach

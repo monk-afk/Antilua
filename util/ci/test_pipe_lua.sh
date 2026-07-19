@@ -202,6 +202,21 @@ pipe_request '{"code":"return \"after limited loop\"","file":"'$RESP_FILE'"}' ||
 RESULT=$(cat "$RESP_FILE" 2>/dev/null || echo "timeout")
 check "instruction limit recovery" "$(printf 'ok\nafter limited loop')" "$RESULT"
 
+# Test 14: synchronous helper returns compact structured output
+RESULT=$(./util/antilua-pipe --pipe "$PIPE_PATH" --json \
+	'return {source="helper",values={2,4,8}}')
+check "synchronous CLI helper" \
+	'[{"source":"helper","values":[2,4,8]}]' "$RESULT"
+
+# Test 15: helper exposes Lua failures through its documented exit status
+if ./util/antilua-pipe --pipe "$PIPE_PATH" 'error("helper failure")' \
+		>/dev/null 2>&1; then
+	CLI_STATUS=0
+else
+	CLI_STATUS=$?
+fi
+check "synchronous CLI Lua error status" "10" "$CLI_STATUS"
+
 echo ""
 echo "=== Results: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

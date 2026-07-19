@@ -11,6 +11,17 @@ The Antilua client exposes a named pipe (FIFO) at `/tmp/antilua_lua` (configurab
 
 ## Protocol
 
+Prefer the synchronous helper when working from this repository:
+
+```bash
+util/antilua-pipe --json \
+  'return {position=core.localplayer:get_pos(), players=core.get_player_names()}'
+```
+
+It uses unique response files, cleans them up, enforces a five-second deadline,
+and applies a one-million-instruction budget by default. Use raw FIFO requests
+only when the helper is unavailable or asynchronous submission is intentional.
+
 Request is a JSON line (one per line, `\n` terminated):
 
 ```json

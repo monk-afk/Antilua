@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+# Antilua
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+"""Synchronously evaluate Lua through a running Antilua client's FIFO."""
+
+import argparse
+import errno
+import json
+import math
+import os
+import select
+import stat
+import sys
+import tempfile
+import time
+
+
+EXIT_LUA_ERROR = 10
+EXIT_TIMEOUT = 11
+EXIT_TRANSPORT = 12
+MAX_REQUEST_SIZE = 64 * 1024
+
+
+class PipeError(Exception):
+	pass
+
+
+class ResponseTimeout(PipeError):
+	pass
+
+
+def positive_int(value):
+	parsed = int(value)
+	if parsed <= 0 or parsed > 2_147_483_647:
+		raise argparse.ArgumentTypeError("must be between 1 and 2147483647")
+	return parsed
+
+
+def positive_float(value):
+	parsed = float(value)
+	if parsed <= 0 or not math.isfinite(parsed):
+		raise argparse.ArgumentTypeError("must be positive and finite")
+	return parsed
+
+
+def parse_args():
+	parser = argparse.ArgumentParser(
+		description="Evaluate Lua through an enabled Antilua client pipe")
+	parser.add_argument("code", nargs="?", help="Lua source to evaluate")
+	parser.add_argument("--code-file", metavar="PATH", help="read Lua source from PATH")
+	parser.add_argument("--pipe", default="/tmp/antilua_lua", help="FIFO path")
+	parser.add_argument("--json", action="store_true", help="request structured JSON results")
+	parser.add_argument("--timeout", type=positive_float, default=5.0,
+		help="response deadline in seconds (default: 5)")
+	budget = parser.add_mutually_exclusive_group()
+	budget.add_argument("--instruction-limit", type=positive_int, default=1_000_000,
+		help="Lua VM instruction budget (default: 1000000)")
+	budget.add_argument("--unlimited", action="store_true",
+		help="disable the default Lua instruction budget")
+	args = parser.parse_args()
+	if (args.code is None) == (args.code_file is None):
+		parser.error("provide exactly one of code or --code-file")
+	return args
+
+
+def validate_pipe(path):
+	try:
+		info = os.lstat(path)
+	except OSError as exc:
+		raise PipeError(f"cannot inspect pipe {path}: {exc.strerror}") from exc
+	if not stat.S_ISFIFO(info.st_mode):
+		raise PipeError(f"refusing non-FIFO pipe path: {path}")
+	if info.st_uid != os.geteuid():
+		raise PipeError(f"refusing pipe not owned by uid {os.geteuid()}: {path}")
+	if info.st_mode & 0o077:
+		raise PipeError(f"refusing pipe accessible by group or others: {path}")
+	return info
+
+
+def send_request(pipe_path, pipe_info, payload, deadline):
+	flags = os.O_WRONLY | os.O_NONBLOCK
+	if hasattr(os, "O_NOFOLLOW"):
+		flags |= os.O_NOFOLLOW
+	try:
+		fd = os.open(pipe_path, flags)
+	except OSError as exc:
+		if exc.errno == errno.ENXIO:
+			raise PipeError("pipe exists but no Antilua client is reading it") from exc
+		raise PipeError(f"cannot open pipe: {exc.strerror}") from exc
+	try:
+		opened = os.fstat(fd)
+		if (not stat.S_ISFIFO(opened.st_mode) or opened.st_uid != os.geteuid() or
+				opened.st_dev != pipe_info.st_dev or opened.st_ino != pipe_info.st_ino):
+			raise PipeError("pipe changed while opening")
+		offset = 0
+		while offset < len(payload):
+			try:
+				written = os.write(fd, payload[offset:])
+				if written == 0:
+					raise PipeError("pipe closed while writing request")
+				offset += written
+			except BlockingIOError:
+				remaining = deadline - time.monotonic()
+				if remaining <= 0:
+					raise ResponseTimeout("timed out while writing request")
+				select.select([], [fd], [], remaining)
+	finally:
+		os.close(fd)
+
+
+def read_response(path, deadline):
+	previous = None
+	stable_since = None
+	while time.monotonic() < deadline:
+		try:
+			with open(path, "rb") as response:
+				data = response.read()
+		except OSError as exc:
+			raise PipeError(f"cannot read response: {exc.strerror}") from exc
+
+		complete = data.endswith(b"\n") and (
+			data.startswith(b"ok\n") or data.startswith(b"error\n"))
+		if complete:
+			if data != previous:
+				previous = data
+				stable_since = time.monotonic()
+			elif time.monotonic() - stable_since >= 0.05:
+				return data.decode("utf-8", errors="replace")
+		else:
+			previous = data
+			stable_since = None
+		time.sleep(0.01)
+	raise ResponseTimeout("timed out waiting for Antilua response")
+
+
+def main():
+	args = parse_args()
+	if args.code_file:
+		try:
+			with open(args.code_file, "r", encoding="utf-8") as source:
+				code = source.read()
+		except OSError as exc:
+			print(f"antilua-pipe: cannot read Lua file: {exc}", file=sys.stderr)
+			return EXIT_TRANSPORT
+	else:
+		code = args.code
+
+	response_dir = os.path.dirname(os.path.abspath(args.pipe)) or "."
+	response_fd = None
+	response_path = None
+	try:
+		pipe_info = validate_pipe(args.pipe)
+		response_fd, response_path = tempfile.mkstemp(
+			prefix=".antilua-response-", dir=response_dir)
+		os.fchmod(response_fd, 0o600)
+		os.close(response_fd)
+		response_fd = None
+
+		request = {"code": code, "file": response_path}
+		if args.json:
+			request["result_format"] = "json"
+		if not args.unlimited:
+			request["instruction_limit"] = args.instruction_limit
+		payload = (json.dumps(request, separators=(",", ":")) + "\n").encode()
+		if len(payload) - 1 > MAX_REQUEST_SIZE:
+			raise PipeError(f"request exceeds {MAX_REQUEST_SIZE}-byte protocol limit")
+
+		deadline = time.monotonic() + args.timeout
+		send_request(args.pipe, pipe_info, payload, deadline)
+		response = read_response(response_path, deadline)
+		status, _, content = response.rstrip("\n").partition("\n")
+		if status == "error":
+			print(content or "unknown Lua error", file=sys.stderr)
+			return EXIT_LUA_ERROR
+		if status != "ok":
+			raise PipeError(f"invalid response status: {status!r}")
+		if args.json:
+			try:
+				decoded = json.loads(content)
+			except json.JSONDecodeError as exc:
+				raise PipeError(f"invalid JSON response: {exc}") from exc
+			print(json.dumps(decoded, separators=(",", ":")))
+		elif content:
+			print(content)
+		return 0
+	except ResponseTimeout as exc:
+		print(f"antilua-pipe: {exc}", file=sys.stderr)
+		return EXIT_TIMEOUT
+	except PipeError as exc:
+		print(f"antilua-pipe: {exc}", file=sys.stderr)
+		return EXIT_TRANSPORT
+	finally:
+		if response_fd is not None:
+			os.close(response_fd)
+		if response_path is not None:
+			try:
+				os.unlink(response_path)
+			except FileNotFoundError:
+				pass
+
+
+if __name__ == "__main__":
+	sys.exit(main())
